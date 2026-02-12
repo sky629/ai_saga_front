@@ -1,73 +1,87 @@
-# React + TypeScript + Vite
+# AI Saga Front
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+AI Saga Front is the immersive cyber-retro frontend interface for the AI Saga text-based RPG engine. Built with modern web technologies, it delivers a nostalgic yet futuristic gaming experience through a terminal-inspired UI, pixel art aesthetics, and seamless AI interactions.
 
-Currently, two official plugins are available:
+## 🌟 Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+-   **Cyberpunk & Retro Aesthetics**: A visually striking interface combining CRT terminal effects, neon glows, and pixel art elements.
+-   **Immersive Dashboard**: View and manage your game sessions with a sleek, session-centric dashboard displaying character stats and status.
+-   **Dynamic Game Sessions**: Engage in AI-driven adventures with a chat-like interface that supports rich text and dynamic content.
+-   **Character & Scenario Creation**: Intuitive modals for selecting scenarios and crafting unique characters to start your journey.
+-   **Google Authentication**: Secure and easy sign-in integration.
+-   **Responsive Design**: optimized for various screen sizes, ensuring a great experience on both desktop and mobile.
 
-## React Compiler
+## 🛠 Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+-   **Framework**: [React 19](https://react.dev/)
+-   **Build Tool**: [Vite](https://vitejs.dev/)
+-   **Language**: [TypeScript](https://www.typescriptlang.org/)
+-   **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+-   **State Management & Data Fetching**: [TanStack Query (React Query)](https://tanstack.com/query/latest)
+-   **Routing**: [React Router DOM](https://reactrouter.com/)
+-   **HTTP Client**: [Axios](https://axios-http.com/)
+-   **Icons**: [Lucide React](https://lucide.dev/)
+-   **Utilities**: `clsx`, `tailwind-merge`
 
-## Expanding the ESLint configuration
+## 🚀 Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Prerequisites
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+-   Node.js (Latest LTS recommended)
+-   npm or yarn
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Installation
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+1.  Clone the repository:
+    ```bash
+    git clone https://github.com/sky629/ai_saga_front.git
+    cd ai_saga_front
+    ```
+
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+
+### Running the Application
+
+1.  Start the development server:
+    ```bash
+    npm run dev
+    ```
+
+2.  Open your browser and navigate to `http://localhost:5173` (or the port shown in your terminal).
+
+### Building for Production
+
+To build the application for production deployment:
+
+```bash
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The output will be in the `dist` directory.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 📂 Project Structure
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
 ```
+src/
+├── assets/         # Static assets (images, icons)
+├── components/     # Reusable UI components
+│   ├── common/     # Generic components (ErrorBoundary, etc.)
+│   ├── game/       # Game-specific components (StatusPanel, MessageHistory, etc.)
+│   └── layout/     # Layout components (CyberpunkLayout, RetroWindow, etc.)
+├── context/        # React Contexts (AuthContext)
+├── pages/          # Page components (Dashboard, GameSession, Login, etc.)
+├── services/       # API services (gameService)
+├── types/          # TypeScript type definitions
+└── utils/          # Utility functions
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+[MIT](LICENSE)
