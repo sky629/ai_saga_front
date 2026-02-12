@@ -1,0 +1,163 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+@layer base {
+  body {
+    @apply font-pixel bg-gray-950 text-green-400 overflow-hidden antialiased;
+    background-image: radial-gradient(circle, #1a1a1a 0%, #000000 100%);
+  }
+}
+
+/* Custom Scrollbar for Webkit */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* CRT Effects */
+@keyframes scanline {
+  0% {
+    transform: translateY(0);
+  }
+
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+.scanlines::before {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(to bottom,
+      rgba(18, 16, 16, 0) 50%,
+      rgba(0, 0, 0, 0.25) 50%);
+  background-size: 100% 4px;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.scanlines::after {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: rgba(18, 16, 16, 0.1);
+  opacity: 0;
+  z-index: 50;
+  pointer-events: none;
+  animation: flicker 0.15s infinite;
+}
+
+@keyframes flicker {
+  0% {
+    opacity: 0.0279;
+  }
+
+  5% {
+    opacity: 0.04853;
+  }
+
+  10% {
+    opacity: 0.02111;
+  }
+
+  15% {
+    opacity: 0.08503;
+  }
+
+  20% {
+    opacity: 0.04626;
+  }
+
+  25% {
+    opacity: 0.09117;
+  }
+
+  30% {
+    opacity: 0.0416;
+  }
+
+  35% {
+    opacity: 0.02391;
+  }
+
+  40% {
+    opacity: 0.05206;
+  }
+
+  45% {
+    opacity: 0.04021;
+  }
+
+  50% {
+    opacity: 0.09132;
+  }
+
+  55% {
+    opacity: 0.07664;
+  }
+
+  60% {
+    opacity: 0.05775;
+  }
+
+  65% {
+    opacity: 0.05948;
+  }
+
+  70% {
+    opacity: 0.02422;
+  }
+
+  75% {
+    opacity: 0.06646;
+  }
+
+  80% {
+    opacity: 0.0152;
+  }
+
+  85% {
+    opacity: 0.09339;
+  }
+
+  90% {
+    opacity: 0.08993;
+  }
+
+  95% {
+    opacity: 0.01787;
+  }
+
+  100% {
+    opacity: 0.0279;
+  }
+}
+
+.monitor-glow {
+  box-shadow: 0 0 50px rgba(0, 255, 0, 0.1) inset;
+}
+
+.text-glow {
+  text-shadow: 0 0 5px rgba(74, 222, 128, 0.5);
+}
