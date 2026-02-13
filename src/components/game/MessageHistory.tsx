@@ -230,15 +230,36 @@ export function MessageHistory({ messages, isLoading, onActionSelect }: MessageH
                             </span>
                         </div>
 
-                        {/* Content */}
-                        <div className="pt-2 prose prose-sm max-w-none text-gray-300 prose-p:leading-relaxed prose-p:mb-2 prose-headings:font-bold prose-headings:text-sanabi-cyan prose-strong:text-sanabi-gold prose-strong:font-bold prose-ul:list-disc prose-ul:pl-4 prose-ol:list-decimal prose-ol:pl-4">
+                        {/* Content - Enhanced Readability */}
+                        <div
+                            className="pt-2 prose prose-sm max-w-none break-keep tracking-wide"
+                            style={{
+                                wordBreak: 'keep-all',
+                                overflowWrap: 'break-word',
+                                lineHeight: '2.4rem',
+                                color: '#EFEFEF'
+                            }}
+                        >
                             <ReactMarkdown
                                 components={{
-                                    p: ({ node, ...props }) => <p className="mb-2 leading-loose" {...props} />,
-                                    ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2 space-y-1 text-sanabi-cyan/80" {...props} />,
-                                    ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2 space-y-1 text-sanabi-cyan/80" {...props} />,
-                                    li: ({ node, ...props }) => <li className="pl-1 text-gray-300" {...props} />,
-                                    strong: ({ node, ...props }) => <strong className="font-bold text-sanabi-green bg-sanabi-green/10 px-1 rounded-sm shadow-[0_0_5px_rgba(0,255,157,0.3)]" {...props} />,
+                                    p: ({ node, ...props }) => (
+                                        <p
+                                            style={{
+                                                marginBottom: '1.5rem',
+                                                lineHeight: '2.4rem',
+                                                wordBreak: 'keep-all',
+                                                fontSize: '16px',
+                                                color: '#EFEFEF'
+                                            }}
+                                            {...props}
+                                        />
+                                    ),
+                                    ul: ({ node, ...props }) => <ul className="list-disc pl-5 space-y-2 text-sanabi-cyan/80" style={{ marginBottom: '1.5rem' }} {...props} />,
+                                    ol: ({ node, ...props }) => <ol className="list-decimal pl-5 space-y-2 text-sanabi-cyan/80" style={{ marginBottom: '1.5rem' }} {...props} />,
+                                    li: ({ node, ...props }) => <li className="pl-1 text-gray-300" style={{ lineHeight: '2rem', fontSize: '15px' }} {...props} />,
+                                    strong: ({ node, ...props }) => <strong className="font-bold text-sanabi-green bg-sanabi-green/10 px-1 rounded-sm shadow-[0_0_5px_rgba(0,255,157,0.3)] mx-1" {...props} />,
+                                    em: ({ node, ...props }) => <em className="text-sanabi-pink not-italic font-medium mx-0.5" {...props} />,
+                                    code: ({ node, ...props }) => <code className="font-mono text-xs bg-black/50 px-1.5 py-0.5 rounded border border-sanabi-cyan/30 text-sanabi-cyan mx-1" {...props} />,
                                 }}
                             >
                                 {narrative}
