@@ -10,6 +10,23 @@ export default {
         pixel: ['"Press Start 2P"', 'cursive'],
       },
       colors: {
+        pixel: {
+          cream: '#0B0C15',  // Deep Space (Background) - was paper
+          brown: '#00F0FF',  // Neon Cyan (Primary Border) - was wood
+          gold: '#FF0055',   // Neon Pink (Accent/Highlight) - was gold
+          green: '#00FF9D',  // Neon Green (Success)
+          red: '#FF4D4D',    // Neon Red (Danger)
+          dark: '#E0E0E0',   // Light Gray (Text)
+          card: '#151621',   // Dark Panel (Card BG)
+        },
+        sanabi: {
+          bg: '#0B0C15',
+          panel: '#151621',
+          cyan: '#00F0FF',
+          pink: '#FF0055',
+          green: '#00FF9D',
+          gold: '#FFD700',
+        },
         cyber: {
           bg: '#0a0a12', // Blackish Blue
           dark: '#14142b', // Deep Blue
@@ -34,5 +51,7 @@ export default {
       }
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/typography'),
+  ],
 }

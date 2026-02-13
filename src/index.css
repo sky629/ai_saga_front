@@ -1,10 +1,25 @@
+@import url('https://cdn.jsdelivr.net/gh/dunggeunmo/dunggeunmo/dunggeunmo.css');
+
 @import "tailwindcss";
+
+@theme {
+  --font-pixel: "DungGeunMo", sans-serif;
+  --color-pixel-cream: #FFDB99;
+  --color-pixel-brown: #61390F;
+  --color-pixel-gold: #F4A221;
+}
+
+:root {
+  font-family: var(--font-pixel);
+  image-rendering: pixelated;
+}
+
 @config "../tailwind.config.js";
 
 @layer base {
   body {
-    @apply font-pixel bg-gray-950 text-green-400 overflow-hidden antialiased;
-    background-image: radial-gradient(circle, #1a1a1a 0%, #000000 100%);
+    @apply font-pixel bg-[#0B0C15] text-[#E0E0E0] overflow-hidden antialiased;
+    background-image: radial-gradient(circle at 50% 50%, #1a1b2e 0%, #0B0C15 100%);
   }
 }
 

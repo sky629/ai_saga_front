@@ -1,4 +1,4 @@
-import { Package, MapPin, Users, Sparkles, Clock } from 'lucide-react';
+import { Package, MapPin, Users, Sparkles, Clock, Skull } from 'lucide-react';
 import type { GameState } from '../../types/api';
 
 interface GameStatePanelProps {
@@ -10,27 +10,21 @@ interface GameStatePanelProps {
 
 export function GameStatePanel({ gameState, currentLocation, turnCount, maxTurns }: GameStatePanelProps) {
     const isNearingEnd = turnCount >= maxTurns * 0.8;
-
     return (
-        <div className="w-full border-t-2 border-green-800 bg-black/90 p-4 flex flex-col gap-4 text-xs">
-            <div className="flex items-center gap-2 text-green-400 font-bold text-sm uppercase tracking-wider border-b border-green-900 pb-2">
-                <Sparkles size={14} className="animate-pulse" />
-                <span>Game State</span>
-            </div>
-
+        <div className="w-full h-full bg-sanabi-bg/50 p-4 flex flex-col gap-5 text-sm overflow-y-auto">
             {/* 턴 카운터 */}
             <div className="space-y-1">
-                <div className="flex items-center gap-2 text-green-600 uppercase tracking-wide">
+                <div className="flex items-center gap-2 text-sanabi-cyan/70 font-bold text-xs uppercase tracking-wide">
                     <Clock size={12} />
-                    <span>Turn</span>
+                    <span>System Time</span>
                 </div>
                 <div className="ml-5">
-                    <div className="text-green-400 font-pixel text-base font-bold">
-                        {turnCount} / {maxTurns}
+                    <div className="text-sanabi-cyan font-pixel text-lg font-bold drop-shadow-[0_0_5px_rgba(0,240,255,0.5)]">
+                        CYCLE {turnCount} <span className="text-gray-500 text-sm">/ {maxTurns}</span>
                     </div>
                     {isNearingEnd && (
-                        <div className="text-yellow-400 text-[10px] mt-1 animate-pulse">
-                            ⚠️ Game ending soon
+                        <div className="text-sanabi-pink text-xs mt-1 animate-pulse font-bold flex items-center gap-1">
+                            <Skull size={12} /> CRITICAL FAILURE IMMINENT...
                         </div>
                     )}
                 </div>
@@ -38,33 +32,35 @@ export function GameStatePanel({ gameState, currentLocation, turnCount, maxTurns
 
             {/* 현재 위치 */}
             <div className="space-y-1">
-                <div className="flex items-center gap-2 text-green-600 uppercase tracking-wide">
+                <div className="flex items-center gap-2 text-sanabi-cyan/70 font-bold text-xs uppercase tracking-wide">
                     <MapPin size={12} />
-                    <span>Location</span>
+                    <span>Coordinates</span>
                 </div>
-                <div className="text-green-400 ml-5 font-pixel text-xs">
-                    {currentLocation || 'Unknown'}
+                <div className="text-gray-300 ml-5 font-bold text-sm border-l-2 border-sanabi-gold pl-2">
+                    {currentLocation || 'Unknown Sector'}
                 </div>
             </div>
 
             {/* 인벤토리 */}
             <div className="space-y-1">
-                <div className="flex items-center gap-2 text-green-600 uppercase tracking-wide">
+                <div className="flex items-center gap-2 text-sanabi-cyan/70 font-bold text-xs uppercase tracking-wide">
                     <Package size={12} />
-                    <span>Inventory</span>
+                    <span>Inventory Database</span>
                 </div>
-                <div className="ml-5 min-h-[60px] border border-green-800 bg-green-900/10 p-2">
+                <div className="ml-5 min-h-[60px] border border-sanabi-cyan/20 bg-black/40 p-2 rounded-sm relative">
+                    <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-sanabi-cyan/50" />
+                    <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-sanabi-cyan/50" />
                     {gameState.items && gameState.items.length > 0 ? (
-                        <ul className="text-green-500 space-y-1">
+                        <ul className="text-gray-300 space-y-1">
                             {gameState.items.map((item, idx) => (
-                                <li key={idx} className="flex items-center gap-1">
-                                    <span className="text-green-700">{'>'}</span>
+                                <li key={idx} className="flex items-start gap-2 text-xs">
+                                    <span className="text-sanabi-gold font-bold">{'>'}</span>
                                     <span>{item}</span>
                                 </li>
                             ))}
                         </ul>
                     ) : (
-                        <div className="text-green-700/50 italic text-center">Empty</div>
+                        <div className="text-gray-600 italic text-center text-xs py-2">No Data Found</div>
                     )}
                 </div>
             </div>
@@ -72,15 +68,15 @@ export function GameStatePanel({ gameState, currentLocation, turnCount, maxTurns
             {/* 만난 NPC */}
             {gameState.met_npcs && gameState.met_npcs.length > 0 && (
                 <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-green-600 uppercase tracking-wide">
+                    <div className="flex items-center gap-2 text-sanabi-cyan/70 font-bold text-xs uppercase tracking-wide">
                         <Users size={12} />
-                        <span>Met NPCs</span>
+                        <span>Entities Contacted</span>
                     </div>
-                    <div className="ml-5 border border-green-800 bg-green-900/10 p-2">
-                        <ul className="text-green-500 space-y-1">
+                    <div className="ml-5 border border-sanabi-pink/20 bg-black/40 p-2 rounded-sm">
+                        <ul className="text-gray-300 space-y-1">
                             {gameState.met_npcs.map((npc, idx) => (
-                                <li key={idx} className="flex items-center gap-1">
-                                    <span className="text-green-700">{'>'}</span>
+                                <li key={idx} className="flex items-start gap-2 text-xs">
+                                    <span className="text-sanabi-pink font-bold">{'>'}</span>
                                     <span>{npc}</span>
                                 </li>
                             ))}
@@ -92,15 +88,15 @@ export function GameStatePanel({ gameState, currentLocation, turnCount, maxTurns
             {/* 발견한 것 */}
             {gameState.discoveries && gameState.discoveries.length > 0 && (
                 <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-green-600 uppercase tracking-wide">
+                    <div className="flex items-center gap-2 text-sanabi-cyan/70 font-bold text-xs uppercase tracking-wide">
                         <Sparkles size={12} />
-                        <span>Discoveries</span>
+                        <span>Intel Gathered</span>
                     </div>
-                    <div className="ml-5 border border-green-800 bg-green-900/10 p-2">
-                        <ul className="text-green-500 space-y-1">
+                    <div className="ml-5 border border-sanabi-gold/20 bg-black/40 p-2 rounded-sm">
+                        <ul className="text-gray-300 space-y-1">
                             {gameState.discoveries.map((discovery, idx) => (
-                                <li key={idx} className="flex items-center gap-1">
-                                    <span className="text-green-700">{'>'}</span>
+                                <li key={idx} className="flex items-start gap-2 text-xs">
+                                    <span className="text-sanabi-gold font-bold">{'>'}</span>
                                     <span>{discovery}</span>
                                 </li>
                             ))}
@@ -112,12 +108,12 @@ export function GameStatePanel({ gameState, currentLocation, turnCount, maxTurns
             {/* 방문한 장소 (최근 5개 표시) */}
             {gameState.visited_locations && gameState.visited_locations.length > 0 && (
                 <div className="space-y-1">
-                    <div className="flex items-center gap-2 text-green-600 uppercase tracking-wide">
+                    <div className="flex items-center gap-2 text-sanabi-cyan/70 font-bold text-xs uppercase tracking-wide">
                         <MapPin size={12} />
-                        <span>Recent Path</span>
+                        <span>Traversal Log</span>
                     </div>
-                    <div className="ml-5 text-green-700/70 text-[10px] border border-green-800 bg-green-900/10 p-2">
-                        {gameState.visited_locations.slice(-5).join(' → ')}
+                    <div className="ml-5 text-gray-500 text-[10px] border border-sanabi-cyan/10 bg-black/20 p-2 rounded-sm font-mono">
+                        {gameState.visited_locations.slice(-5).join(' >> ')}
                     </div>
                 </div>
             )}

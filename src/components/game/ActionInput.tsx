@@ -1,13 +1,14 @@
-import { useState, type FormEvent, useEffect, useRef } from 'react';
-import { Send } from 'lucide-react';
+import { useRef, useEffect, type FormEvent } from 'react';
+import { Send, Terminal } from 'lucide-react';
 
 interface ActionInputProps {
     onSend: (content: string) => void;
     disabled?: boolean;
+    value: string;
+    onChange: (value: string) => void;
 }
 
-export function ActionInput({ onSend, disabled }: ActionInputProps) {
-    const [input, setInput] = useState('');
+export function ActionInput({ onSend, disabled, value, onChange }: ActionInputProps) {
     const inputRef = useRef<HTMLInputElement>(null);
 
     // Keep focus on input unless user explicitly clicks away
@@ -15,38 +16,43 @@ export function ActionInput({ onSend, disabled }: ActionInputProps) {
         if (!disabled && inputRef.current) {
             inputRef.current.focus();
         }
-    }, [disabled, input]);
+    }, [disabled, value]);
 
     const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        if (!input.trim() || disabled) return;
-        onSend(input);
-        setInput('');
+        if (!value.trim() || disabled) return;
+        onSend(value);
     };
 
     return (
         <form
             onSubmit={handleSubmit}
-            className="flex gap-2 items-center p-2 bg-black/20"
+            className="flex gap-3 items-center p-3 bg-sanabi-panel border-t border-sanabi-cyan/20"
         >
-            <span className="text-cyber-primary font-bold animate-pulse">{'>'}</span>
-            <input
-                ref={inputRef}
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                disabled={disabled}
-                className="flex-1 bg-transparent border-none outline-none text-cyber-text font-mono placeholder:text-cyber-muted/50 text-sm"
-                placeholder={disabled ? "AWAITING NEURAL RESPONSE..." : "ENTER COMMAND..."}
-                autoFocus
-                autoComplete="off"
-            />
+            <div className="w-8 h-8 flex items-center justify-center bg-sanabi-cyan/10 rounded border border-sanabi-cyan/30 text-sanabi-cyan">
+                <Terminal size={16} />
+            </div>
+
+            <div className="flex-1 relative">
+                <input
+                    ref={inputRef}
+                    type="text"
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    disabled={disabled}
+                    className="w-full bg-black/50 border border-sanabi-cyan/30 rounded-sm px-3 py-2 text-gray-200 placeholder:text-gray-600 outline-none focus:border-sanabi-cyan focus:shadow-[0_0_10px_rgba(0,240,255,0.2)] transition-all font-pixel text-base"
+                    placeholder={disabled ? "AWAITING_SYSTEM_RESPONSE..." : "Enter command..."}
+                    autoFocus
+                    autoComplete="off"
+                />
+            </div>
+
             <button
                 type="submit"
-                disabled={disabled || !input.trim()}
-                className="text-cyber-primary hover:text-white disabled:opacity-30 transition-colors"
+                disabled={disabled || !value.trim()}
+                className="bg-sanabi-cyan text-black border border-sanabi-cyan p-2 rounded-sm hover:bg-cyan-300 hover:shadow-[0_0_15px_rgba(0,240,255,0.5)] active:translate-y-0.5 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:bg-sanabi-cyan shadow-sm"
             >
-                <Send size={16} />
+                <Send size={18} />
             </button>
         </form>
     );
