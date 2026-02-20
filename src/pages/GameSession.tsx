@@ -10,10 +10,12 @@ import { ActionInput } from '../components/game/ActionInput';
 import { StatusPanel } from '../components/game/StatusPanel';
 import { GameStatePanel } from '../components/game/GameStatePanel';
 import { ScenarioSelectionModal } from '../components/game/ScenarioSelectionModal';
+import { DiceResultPanel } from '../components/game/DiceResultPanel';
 import type {
     GameMessageResponse,
     MessageHistoryResponse,
-    ScenarioResponse
+    ScenarioResponse,
+    DiceResult
 } from '../types/api';
 
 export default function GameSession() {
@@ -26,8 +28,8 @@ export default function GameSession() {
     const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [isCheckingSession, setIsCheckingSession] = useState(true);
     const [actionInput, setActionInput] = useState('');
+    const [diceResult, setDiceResult] = useState<DiceResult | null>(null);
 
-    // Scenario Selection State
     const [scenarios, setScenarios] = useState<ScenarioResponse[]>([]);
     const [showScenarioSelect, setShowScenarioSelect] = useState(false);
 
@@ -148,7 +150,9 @@ export default function GameSession() {
             if (data.image_url) {
                 setImageUrl(data.image_url);
             }
-            // Refresh session data to update game_state
+            if (data.dice_result) {
+                setDiceResult(data.dice_result);
+            }
             queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
             queryClient.invalidateQueries({ queryKey: ['characters'] });
         }
@@ -259,8 +263,10 @@ export default function GameSession() {
                                                 </div>
                                             )}
 
-                                            {/* Messages Container */}
                                             <div className="flex-1 overflow-hidden relative flex flex-col min-h-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-opacity-5">
+                                                <div className="p-4 pb-0">
+                                                    <DiceResultPanel diceResult={diceResult} />
+                                                </div>
                                                 <MessageHistory
                                                     messages={localMessages}
                                                     isLoading={!!sendActionMutation.isPending}

@@ -108,6 +108,19 @@ export interface GameActionRequest {
     action: string;
 }
 
+export interface DiceResult {
+    roll: number;
+    modifier: number;
+    total: number;
+    dc: number;
+    is_success: boolean;
+    is_critical: boolean;
+    is_fumble: boolean;
+    check_type: string;
+    damage: number | null;
+    display_text: string;
+}
+
 export interface GameActionResponse {
     message: GameMessageResponse;
     narrative: string;
@@ -117,6 +130,7 @@ export interface GameActionResponse {
     is_ending: boolean;
     state_changes?: StateChanges | null;  // 변경: 구체적인 타입 지정
     image_url?: string | null;
+    dice_result?: DiceResult | null;
 }
 
 export interface GameEndingResponse {
