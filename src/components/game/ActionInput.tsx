@@ -6,9 +6,10 @@ interface ActionInputProps {
     disabled?: boolean;
     value: string;
     onChange: (value: string) => void;
+    error?: string | null;
 }
 
-export function ActionInput({ onSend, disabled, value, onChange }: ActionInputProps) {
+export function ActionInput({ onSend, disabled, value, onChange, error }: ActionInputProps) {
     const inputRef = useRef<HTMLInputElement>(null);
 
     // Keep focus on input unless user explicitly clicks away
@@ -25,6 +26,13 @@ export function ActionInput({ onSend, disabled, value, onChange }: ActionInputPr
     };
 
     return (
+        <div className="flex flex-col w-full">
+            {error && (
+                <div className="px-4 py-1.5 bg-black/40 border-t border-sanabi-pink/30 text-sanabi-pink text-[10px] font-bold animate-pulse uppercase tracking-wider flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-sanabi-pink rounded-full shadow-[0_0_5px_rgba(255,0,170,0.5)]"></span>
+                    System_Error: {error}
+                </div>
+            )}
         <form
             onSubmit={handleSubmit}
             className="flex gap-3 items-center p-3 bg-sanabi-panel border-t border-sanabi-cyan/20"
@@ -55,5 +63,6 @@ export function ActionInput({ onSend, disabled, value, onChange }: ActionInputPr
                 <Send size={18} />
             </button>
         </form>
+        </div>
     );
 }

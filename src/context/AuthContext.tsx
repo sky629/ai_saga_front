@@ -10,6 +10,7 @@ interface AuthContextType {
     login: () => void;
     logout: () => void;
     setToken: (token: string) => void;
+    refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,36 +45,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     // Fetch user profile when token changes
+    const refreshUser = async () => {
+        if (!token) {
+            setUser(null);
+            setIsLoading(false);
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            const response = await axios.get<UserResponse>(`${API_BASE_URL}/auth/self/`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setUser(response.data);
+        } catch (error) {
+            console.error('Failed to fetch user:', error);
+            setToken(null);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Fetch user profile when token changes
     useEffect(() => {
-        const fetchUser = async () => {
-            if (!token) {
-                setUser(null);
-                setIsLoading(false);
-                return;
-            }
-
-            try {
-                setIsLoading(true);
-                console.log("AuthContext: Fetching user with token", token);
-                const response = await axios.get<UserResponse>(`${API_BASE_URL}/auth/self/`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                console.log("AuthContext: User fetched", response.data);
-                setUser(response.data);
-            } catch (error) {
-                console.error('Failed to fetch user:', error);
-                setToken(null);
-            } finally {
-                setIsLoading(false);
-                console.log("AuthContext: Loading finished");
-            }
-        };
-
-        fetchUser();
+        refreshUser();
     }, [token]);
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     return (
-        <AuthContext.Provider value={{ user, token, isLoading, login, logout, setToken }}>
+        <AuthContext.Provider value={{ user, token, isLoading, login, logout, setToken, refreshUser }}>
             {children}
         </AuthContext.Provider>
     );

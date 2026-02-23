@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { gameService } from '../services/gameService';
+import { useAuth } from '../context/AuthContext';
 import { PixelLayout } from '../components/layout/PixelLayout';
 import { PixelCard } from '../components/layout/PixelCard';
 import { PixelButton } from '../components/layout/PixelButton';
@@ -21,6 +22,7 @@ import type {
 export default function GameSession() {
     const { characterId } = useParams<{ characterId: string }>();
     const queryClient = useQueryClient();
+    const { refreshUser } = useAuth();
 
     // State
     const [sessionId, setSessionId] = useState<string | null>(null);
@@ -29,6 +31,8 @@ export default function GameSession() {
     const [isCheckingSession, setIsCheckingSession] = useState(true);
     const [actionInput, setActionInput] = useState('');
     const [diceResult, setDiceResult] = useState<DiceResult | null>(null);
+    const [pendingNarrative, setPendingNarrative] = useState<any | null>(null);
+    const [actionError, setActionError] = useState<string | null>(null);
 
     const [scenarios, setScenarios] = useState<ScenarioResponse[]>([]);
     const [showScenarioSelect, setShowScenarioSelect] = useState(false);
@@ -139,6 +143,9 @@ export default function GameSession() {
             return gameService.sendAction(sessionId, action);
         },
         onSuccess: (data) => {
+            // New Action start: Clear previous dice result immediately
+            setDiceResult(null);
+
             const systemMsg: GameMessageResponse = {
                 id: data.message.id || `sys-${Date.now()}`,
                 role: 'system',
@@ -146,12 +153,50 @@ export default function GameSession() {
                 created_at: new Date().toISOString()
             };
 
-            setLocalMessages(prev => [...prev, systemMsg]);
+            const xpMsg = data.xp_gained && data.xp_gained > 0 ? {
+                id: `xp-${Date.now()}`,
+                role: 'system',
+                content: `[SYSTEM] SYNC_DATA: +${data.xp_gained} XP RECEIVED`,
+                created_at: new Date().toISOString()
+            } : null;
+
+            const lvMsg = data.leveled_up ? {
+                id: `lv-${Date.now()}`,
+                role: 'system',
+                content: `[SYSTEM] NEURAL_SYNC_LEVEL_UP: REACHED LEVEL ${data.new_game_level}`,
+                created_at: new Date().toISOString()
+            } : null;
+
+            // Handle delayed reveal if dice is involved
+            if (data.dice_result) {
+                // Show before_roll_narrative immediately (pre-dice tension)
+                if (data.before_roll_narrative) {
+                    const beforeMsg: GameMessageResponse = {
+                        id: `before-${Date.now()}`,
+                        role: 'system',
+                        content: data.before_roll_narrative,
+                        created_at: new Date().toISOString()
+                    };
+                    setLocalMessages(prev => [...prev, beforeMsg]);
+                }
+                setDiceResult(data.dice_result);
+                setPendingNarrative({
+                    systemMsg,
+                    xpMsg,
+                    lvMsg,
+                    shouldRefresh: !!data.xp_gained
+                });
+            } else {
+                // No dice: reveal everything immediately
+                const updates: any[] = [systemMsg];
+                if (xpMsg) updates.push(xpMsg);
+                if (lvMsg) updates.push(lvMsg);
+                setLocalMessages(prev => [...prev, ...updates]);
+                if (data.xp_gained) refreshUser();
+            }
+            
             if (data.image_url) {
                 setImageUrl(data.image_url);
-            }
-            if (data.dice_result) {
-                setDiceResult(data.dice_result);
             }
             queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
             queryClient.invalidateQueries({ queryKey: ['characters'] });
@@ -159,6 +204,10 @@ export default function GameSession() {
     });
 
     const handleSendAction = async (content: string) => {
+        // Clear previous results immediately for UI responsiveness
+        setDiceResult(null);
+        setPendingNarrative(null);
+
         const tempMsg: GameMessageResponse = {
             id: `temp-${Date.now()}`,
             role: 'user',
@@ -168,9 +217,28 @@ export default function GameSession() {
         setLocalMessages(prev => [...prev, tempMsg]);
 
         try {
+            setActionError(null);
             await sendActionMutation.mutateAsync(content);
         } catch (error) {
             console.error("Action failed", error);
+            if ((error as any).response?.status === 429) {
+                setActionError("System_Overload: Request limit exceeded. Please wait a moment.");
+            } else {
+                setActionError("System_Error: Neural link interrupted. Please try again.");
+            }
+        }
+    };
+
+    const handleDiceComplete = () => {
+        if (pendingNarrative) {
+            const { systemMsg, xpMsg, lvMsg, shouldRefresh } = pendingNarrative;
+            const updates: any[] = [systemMsg];
+            if (xpMsg) updates.push(xpMsg);
+            if (lvMsg) updates.push(lvMsg);
+            
+            setLocalMessages(prev => [...prev, ...updates]);
+            if (shouldRefresh) refreshUser();
+            setPendingNarrative(null);
         }
     };
 
@@ -184,6 +252,7 @@ export default function GameSession() {
             setSessionId(null);
             setLocalMessages([]);
             setShowScenarioSelect(true);
+            setDiceResult(null);
             queryClient.invalidateQueries({ queryKey: ['characters'] });
         }
     });
@@ -265,7 +334,10 @@ export default function GameSession() {
 
                                             <div className="flex-1 overflow-hidden relative flex flex-col min-h-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-opacity-5">
                                                 <div className="p-4 pb-0">
-                                                    <DiceResultPanel diceResult={diceResult} />
+                                                    <DiceResultPanel 
+                                                        diceResult={diceResult} 
+                                                        onComplete={handleDiceComplete}
+                                                    />
                                                 </div>
                                                 <MessageHistory
                                                     messages={localMessages}
@@ -277,6 +349,7 @@ export default function GameSession() {
 
                                         <div className="p-0 border-t border-sanabi-cyan/30 z-10 bg-sanabi-panel shrink-0 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
                                             <ActionInput
+                                                error={actionError}
                                                 onSend={(content) => {
                                                     handleSendAction(content);
                                                     setActionInput('');
@@ -285,10 +358,14 @@ export default function GameSession() {
                                                     !!sendActionMutation.isPending
                                                     || !sessionId
                                                     || sessionData?.status === 'completed'
-                                                    || (!!sessionData && sessionData.turn_count >= sessionData.max_turns)
+                                                    
+                                                    || (!!diceResult && !!pendingNarrative) // Disable input while dice is visible and narrative is pending
                                                 }
                                                 value={actionInput}
-                                                onChange={setActionInput}
+                                                onChange={(val) => {
+                                                    setActionInput(val);
+                                                    if (actionError) setActionError(null);
+                                                }}
                                             />
                                         </div>
                                     </>

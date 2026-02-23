@@ -1,12 +1,14 @@
 import React from 'react';
 import { cn } from '../../utils/cn';
-
+import { useAuth } from '../../context/AuthContext';
+import { User } from 'lucide-react';
 interface PixelLayoutProps {
     children: React.ReactNode;
     className?: string;
 }
 
 export function PixelLayout({ children, className }: PixelLayoutProps) {
+    const { user } = useAuth();
     return (
         <div className="min-h-screen bg-sanabi-bg text-gray-200 font-pixel relative overflow-hidden flex flex-col items-center justify-center p-4">
             {/* Grid Pattern Background */}
@@ -39,7 +41,21 @@ export function PixelLayout({ children, className }: PixelLayoutProps) {
                         <div className="w-3 h-3 rounded-full bg-sanabi-gold border border-sanabi-gold/50 shadow-[0_0_5px_rgba(255,215,0,0.6)]" />
                         <div className="w-3 h-3 rounded-full bg-sanabi-green border border-sanabi-green/50 shadow-[0_0_5px_rgba(0,255,157,0.6)]" />
                     </div>
-                    <span className="text-[10px] text-sanabi-cyan/50 font-mono tracking-widest">AI_SAGA::TERMINAL v1.0</span>
+                    <div className="flex items-center gap-4">
+                        {user && (
+                            <div className="flex items-center gap-3 text-[10px] font-mono tracking-widest border-r border-sanabi-cyan/20 pr-4">
+                                <div className="flex items-center gap-1 text-sanabi-gold">
+                                    <span className="opacity-50">SYNC_LV.</span>
+                                    <span className="font-bold">{user.game_level}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-sanabi-cyan">
+                                    <User size={12} className="opacity-70" />
+                                    <span className="font-bold uppercase opacity-80 truncate max-w-[100px]">{user.name}</span>
+                                </div>
+                            </div>
+                        )}
+                        <span className="text-[10px] text-sanabi-cyan/50 font-mono tracking-widest hidden sm:inline">AI_SAGA::TERMINAL v1.0</span>
+                    </div>
                 </div>
 
                 <div className="flex-1 overflow-auto p-4 scrollbar-hide">

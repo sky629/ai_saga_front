@@ -46,6 +46,9 @@ export interface UserResponse {
     email: string;
     name: string;
     user_level: number;
+    game_level: number;
+    game_experience: number;
+    game_current_experience: number;
     profile_image_url?: string | null;
     is_active: boolean;
     email_verified: boolean;
@@ -124,6 +127,7 @@ export interface DiceResult {
 export interface GameActionResponse {
     message: GameMessageResponse;
     narrative: string;
+    before_roll_narrative?: string | null;
     options: string[];
     turn_count: number;
     max_turns: number;
@@ -131,6 +135,9 @@ export interface GameActionResponse {
     state_changes?: StateChanges | null;  // 변경: 구체적인 타입 지정
     image_url?: string | null;
     dice_result?: DiceResult | null;
+    xp_gained?: number;
+    leveled_up?: boolean;
+    new_game_level?: number;
 }
 
 export interface GameEndingResponse {
@@ -140,6 +147,10 @@ export interface GameEndingResponse {
     total_turns: number;
     character_name: string;
     scenario_name: string;
+    xp_gained: number;
+    new_game_level: number;
+    leveled_up: boolean;
+    levels_gained: number;
 }
 
 export interface CursorPaginatedResponse<T> {
