@@ -7,7 +7,8 @@ import type {
     GameActionRequest,
     StartGameRequest,
     CursorPaginatedResponse,
-    MessageHistoryResponse
+    MessageHistoryResponse,
+    IllustrationResponse
 } from '../types/api';
 
 // TODO: Use env variable
@@ -100,6 +101,14 @@ export const gameService = {
         const response = await api.get<CursorPaginatedResponse<MessageHistoryResponse>>(`/sessions/${sessionId}/messages/`, {
             params: { limit, cursor }
         });
+        return response.data;
+    }
+,
+
+    generateIllustration: async (sessionId: string, messageId: string): Promise<IllustrationResponse> => {
+        const response = await api.post<IllustrationResponse>(
+            `/sessions/${sessionId}/messages/${messageId}/illustration/`
+        );
         return response.data;
     }
 };

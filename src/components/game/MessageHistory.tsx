@@ -1,13 +1,15 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type { GameMessageResponse, MessageHistoryResponse, ParsedGameResponse, StateChanges } from '../../types/api';
 import { cn } from '../../utils/cn';
-import { Sparkles, Skull, MapPin, Package, Users } from 'lucide-react';
+import { Sparkles, Skull, MapPin, Package, Users, Palette, Loader2, ImageOff } from 'lucide-react';
+import { gameService } from '../../services/gameService';
 
 interface MessageHistoryProps {
     messages: (GameMessageResponse | MessageHistoryResponse)[];
     isLoading?: boolean;
     onActionSelect?: (action: string) => void;
+    sessionId?: string | null;
 }
 
 // Utility to parse potentially JSON-encoded content
@@ -185,7 +187,85 @@ function StateChangeIndicator({ changes }: { changes: StateChanges }) {
     );
 }
 
-export function MessageHistory({ messages, isLoading, onActionSelect }: MessageHistoryProps) {
+
+function IllustrationSection({
+    messageId,
+    sessionId,
+    initialImageUrl,
+}: {
+    messageId: string;
+    sessionId: string;
+    initialImageUrl?: string | null;
+}) {
+    const [imageUrl, setImageUrl] = useState<string | null>(initialImageUrl ?? null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const handleGenerate = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const result = await gameService.generateIllustration(sessionId, messageId);
+            setImageUrl(result.image_url);
+        } catch (e: any) {
+            const msg = e?.response?.data?.message || 'ILLUST_ERROR: 일러스트 생성에 실패했습니다.';
+            setError(msg);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [sessionId, messageId]);
+
+    if (imageUrl) {
+        return (
+            <div className="mt-3 relative overflow-hidden rounded-sm border border-sanabi-pink/20 group">
+                <img
+                    src={imageUrl}
+                    alt="Scene Illustration"
+                    className="w-full object-cover opacity-90 group-hover:opacity-100 transition-opacity duration-500"
+                    style={{ imageRendering: 'pixelated', maxHeight: '320px' }}
+                    onError={() => {
+                        console.error("ILLUST_LOAD_FAILED:", imageUrl);
+                        setError("IMAGE_LOAD_ERR: 이미지를 불러올 수 없습니다. URL 설정을 확인하세요.");
+                        setImageUrl(null);
+                    }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay pointer-events-none" />
+            </div>
+        );
+    }
+
+    return (
+        <div className="mt-3 pt-2 border-t border-dashed border-sanabi-pink/20">
+            {error && (
+                <div className="flex items-center gap-2 text-xs text-sanabi-pink mb-2">
+                    <ImageOff size={12} />
+                    <span className="font-mono">{error}</span>
+                </div>
+            )}
+            <button
+                onClick={handleGenerate}
+                disabled={isLoading}
+                className={cn(
+                    "flex items-center gap-2 px-3 py-1.5 text-xs font-bold uppercase tracking-wider border transition-all",
+                    "border-sanabi-pink/40 text-sanabi-pink/70 rounded-sm",
+                    isLoading
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:border-sanabi-pink hover:text-sanabi-pink hover:shadow-[0_0_10px_rgba(255,0,85,0.3)] hover:bg-sanabi-pink/10 active:scale-95"
+                )}
+            >
+                {isLoading ? (
+                    <Loader2 size={12} className="animate-spin" />
+                ) : (
+                    <Palette size={12} />
+                )}
+                <span>{isLoading ? 'GENERATING...' : 'GEN_ILLUST'}</span>
+            </button>
+        </div>
+    );
+}
+
+export function MessageHistory({ messages, isLoading, onActionSelect, sessionId }: MessageHistoryProps) {
     const bottomRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -206,6 +286,7 @@ export function MessageHistory({ messages, isLoading, onActionSelect }: MessageH
                 const narrative = parsed?.narrative || msg.content;
                 const options = parsed?.options;
                 const stateChanges = parsed?.state_changes;
+                const msgImageUrl = (msg as GameMessageResponse).image_url;
 
                 return (
                     <div
@@ -269,8 +350,16 @@ export function MessageHistory({ messages, isLoading, onActionSelect }: MessageH
                         {/* State & Options (System Only) */}
                         {isSystem && (
                             <>
-                                {stateChanges && <StateChangeIndicator changes={stateChanges} />}
+                                {/* 일러스트 섹션 - 네러티브 바로 아래 표시 */}
+                                {sessionId && (
+                                    <IllustrationSection
+                                        messageId={msg.id}
+                                        sessionId={sessionId}
+                                        initialImageUrl={msgImageUrl}
+                                    />
+                                )}
 
+                                {stateChanges && <StateChangeIndicator changes={stateChanges} />}
                                 {options && options.length > 0 && (
                                     <div className="mt-4 pt-3 border-t border-sanabi-cyan/20">
                                         <span className="text-xs font-bold text-sanabi-cyan mb-2 block uppercase tracking-wide opacity-80 animate-pulse">Available Actions:</span>
@@ -292,7 +381,6 @@ export function MessageHistory({ messages, isLoading, onActionSelect }: MessageH
                                                             "absolute left-0 top-0 bottom-0 w-[2px] transition-all group-hover:bg-sanabi-cyan",
                                                             isLatestMessage ? "bg-sanabi-cyan/30" : "bg-transparent"
                                                         )} />
-
                                                         <span className={cn(
                                                             "font-bold min-w-[20px] font-mono",
                                                             isLatestMessage ? "text-sanabi-cyan group-hover:text-white" : "text-gray-600"

@@ -96,6 +96,7 @@ export interface GameMessageResponse {
     role: string;
     content: string;
     parsed_response?: Record<string, any> | null;
+    image_url?: string | null;
     created_at: string;
 }
 
@@ -169,4 +170,9 @@ export interface ScenarioResponse {
     world_setting?: string | null;
     initial_location?: string | null;
     is_active: boolean;
+}
+
+export interface IllustrationResponse {
+    message_id: string;
+    image_url: string;
 }

@@ -343,6 +343,7 @@ export default function GameSession() {
                                                     messages={localMessages}
                                                     isLoading={!!sendActionMutation.isPending}
                                                     onActionSelect={(action) => setActionInput(action)}
+                                                    sessionId={sessionId}
                                                 />
                                             </div>
                                         </div>
