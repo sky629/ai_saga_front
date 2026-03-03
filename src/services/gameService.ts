@@ -10,9 +10,10 @@ import type {
     MessageHistoryResponse,
     IllustrationResponse
 } from '../types/api';
+import { addSentryBreadcrumb, captureException } from '../sentry';
 
-// TODO: Use env variable
-const API_URL = 'http://localhost:8000/api/v1/game';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_URL = `${API_BASE_URL}/game`;
 
 const api = axios.create({
     baseURL: API_URL,
@@ -25,6 +26,43 @@ api.interceptors.request.use((config) => {
     }
     return config;
 });
+
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (axios.isAxiosError(error)) {
+            const statusCode = error.response?.status;
+            const url = error.config?.url;
+            const method = error.config?.method?.toUpperCase();
+
+            addSentryBreadcrumb(
+                'API request failed',
+                'http',
+                statusCode && statusCode >= 500 ? 'error' : 'warning',
+                {
+                    status_code: statusCode ?? 'network_error',
+                    url,
+                    method
+                }
+            );
+
+            if (!statusCode || statusCode >= 500) {
+                captureException(error, {
+                    type: 'api_error',
+                    statusCode: statusCode ?? null,
+                    url,
+                    method
+                });
+            }
+        } else {
+            captureException(error, {
+                type: 'unknown_api_error'
+            });
+        }
+
+        return Promise.reject(error);
+    }
+);
 
 export const gameService = {
     getCharacters: async (): Promise<CharacterResponse[]> => {
@@ -80,14 +118,12 @@ export const gameService = {
 
 
     getLoginUrl: async (): Promise<{ auth_url: string }> => {
-        // Use global axios or create a new instance to avoid /game prefix from 'api' instance
-        // hardcoding base for now or use relative if proxy setup (we use absolute http://localhost:8000/api/v1)
-        const response = await axios.get<{ auth_url: string }>('http://localhost:8000/api/v1/auth/google/login/');
+        const response = await axios.get<{ auth_url: string }>(`${API_BASE_URL}/auth/google/login/`);
         return response.data;
     },
 
     exchangeCodeForToken: async (code: string, state: string): Promise<{ access_token: string; token_type: string; user: any }> => {
-        const response = await axios.get<{ access_token: string; token_type: string; user: any }>('http://localhost:8000/api/v1/auth/google/callback/', {
+        const response = await axios.get<{ access_token: string; token_type: string; user: any }>(`${API_BASE_URL}/auth/google/callback/`, {
             params: { code, state }
         });
         return response.data;

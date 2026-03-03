@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { UserResponse } from '../types/api';
 import axios from 'axios';
+import { captureException, setSentryUser } from '../sentry';
 
 
 interface AuthContextType {
@@ -15,8 +16,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// TODO: Move to configuration/env
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<UserResponse | null>(null);
@@ -35,12 +35,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const login = () => {
         // Direct redirect to backend to initiate Google OAuth flow
-        window.location.href = 'http://localhost:8000/api/v1/auth/google/login/';
+        window.location.href = `${API_BASE_URL}/auth/google/login/`;
     };
 
     const logout = () => {
         setToken(null);
         setUser(null);
+        setSentryUser(null);
         window.location.href = '/login';
     };
 
@@ -48,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const refreshUser = async () => {
         if (!token) {
             setUser(null);
+            setSentryUser(null);
             setIsLoading(false);
             return;
         }
@@ -58,9 +60,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 headers: { Authorization: `Bearer ${token}` }
             });
             setUser(response.data);
+            setSentryUser({
+                id: response.data.id,
+                email: response.data.email,
+                username: response.data.name
+            });
         } catch (error) {
             console.error('Failed to fetch user:', error);
+            captureException(error, {
+                feature: 'auth_refresh_user'
+            });
             setToken(null);
+            setUser(null);
+            setSentryUser(null);
         } finally {
             setIsLoading(false);
         }
