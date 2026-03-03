@@ -152,7 +152,10 @@ export interface GameEndingResponse {
     new_game_level: number;
     leveled_up: boolean;
     levels_gained: number;
+    is_ending?: boolean;
 }
+
+export type GameTurnResponse = GameActionResponse | GameEndingResponse;
 
 export interface CursorPaginatedResponse<T> {
     items: T[];

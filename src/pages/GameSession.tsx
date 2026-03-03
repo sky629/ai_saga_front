@@ -16,8 +16,14 @@ import type {
     GameMessageResponse,
     MessageHistoryResponse,
     ScenarioResponse,
-    DiceResult
+    DiceResult,
+    GameActionResponse,
+    GameTurnResponse
 } from '../types/api';
+
+function isGameActionResponse(data: GameTurnResponse): data is GameActionResponse {
+    return 'message' in data;
+}
 
 export default function GameSession() {
     const { characterId } = useParams<{ characterId: string }>();
@@ -33,6 +39,7 @@ export default function GameSession() {
     const [diceResult, setDiceResult] = useState<DiceResult | null>(null);
     const [pendingNarrative, setPendingNarrative] = useState<any | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
+    const [isSessionEnded, setIsSessionEnded] = useState(false);
 
     const [scenarios, setScenarios] = useState<ScenarioResponse[]>([]);
     const [showScenarioSelect, setShowScenarioSelect] = useState(false);
@@ -54,6 +61,12 @@ export default function GameSession() {
         enabled: !!sessionId,
         retry: false
     });
+
+    useEffect(() => {
+        if (sessionData?.status === 'completed') {
+            setIsSessionEnded(true);
+        }
+    }, [sessionData?.status]);
 
     // 2. Fetch or Initialize Session
     useEffect(() => {
@@ -99,6 +112,7 @@ export default function GameSession() {
         try {
             const newSession = await gameService.startGame(characterId, scenarioId);
             setSessionId(newSession.id);
+            setIsSessionEnded(false);
             if (newSession.image_url) {
                 setImageUrl(newSession.image_url);
             }
@@ -145,6 +159,42 @@ export default function GameSession() {
         onSuccess: (data) => {
             // New Action start: Clear previous dice result immediately
             setDiceResult(null);
+            setPendingNarrative(null);
+
+            if (!isGameActionResponse(data)) {
+                setIsSessionEnded(true);
+
+                const endingMessage: GameMessageResponse = {
+                    id: `ending-${Date.now()}`,
+                    role: 'system',
+                    content: `${data.narrative}\n\n[ENDING] ${data.ending_type.toUpperCase()}`,
+                    created_at: new Date().toISOString()
+                };
+                const endingUpdates: GameMessageResponse[] = [endingMessage];
+                if (data.xp_gained > 0) {
+                    endingUpdates.push({
+                        id: `xp-end-${Date.now()}`,
+                        role: 'system',
+                        content: `[SYSTEM] SYNC_DATA: +${data.xp_gained} XP RECEIVED`,
+                        created_at: new Date().toISOString()
+                    });
+                }
+                if (data.leveled_up) {
+                    endingUpdates.push({
+                        id: `lv-end-${Date.now()}`,
+                        role: 'system',
+                        content: `[SYSTEM] NEURAL_SYNC_LEVEL_UP: REACHED LEVEL ${data.new_game_level}`,
+                        created_at: new Date().toISOString()
+                    });
+                }
+                setLocalMessages(prev => [...prev, ...endingUpdates]);
+                if (data.xp_gained > 0) {
+                    refreshUser();
+                }
+                queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
+                queryClient.invalidateQueries({ queryKey: ['characters'] });
+                return;
+            }
 
             const systemMsg: GameMessageResponse = {
                 id: data.message.id || `sys-${Date.now()}`,
@@ -250,6 +300,7 @@ export default function GameSession() {
         },
         onSuccess: () => {
             setSessionId(null);
+            setIsSessionEnded(false);
             setLocalMessages([]);
             setShowScenarioSelect(true);
             setDiceResult(null);
@@ -358,6 +409,7 @@ export default function GameSession() {
                                                 disabled={
                                                     !!sendActionMutation.isPending
                                                     || !sessionId
+                                                    || isSessionEnded
                                                     || sessionData?.status === 'completed'
                                                     
                                                     || (!!diceResult && !!pendingNarrative) // Disable input while dice is visible and narrative is pending
@@ -402,6 +454,7 @@ export default function GameSession() {
                                             currentLocation={sessionData.current_location}
                                             turnCount={sessionData.turn_count}
                                             maxTurns={sessionData.max_turns}
+                                            status={sessionData.status}
                                         />
                                     </div>
                                 </div>

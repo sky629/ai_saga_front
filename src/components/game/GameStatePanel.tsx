@@ -6,10 +6,19 @@ interface GameStatePanelProps {
     currentLocation: string;
     turnCount: number;
     maxTurns: number;
+    status?: string;
 }
 
-export function GameStatePanel({ gameState, currentLocation, turnCount, maxTurns }: GameStatePanelProps) {
+export function GameStatePanel({
+    gameState,
+    currentLocation,
+    turnCount,
+    maxTurns,
+    status
+}: GameStatePanelProps) {
     const isNearingEnd = turnCount >= maxTurns * 0.8;
+    const isLastAction = turnCount === maxTurns - 1 && status !== 'completed';
+    const isCompleted = status === 'completed' || turnCount >= maxTurns;
     return (
         <div className="w-full h-full bg-sanabi-bg/50 p-4 flex flex-col gap-5 text-sm overflow-y-auto">
             {/* 턴 카운터 */}
@@ -22,7 +31,17 @@ export function GameStatePanel({ gameState, currentLocation, turnCount, maxTurns
                     <div className="text-sanabi-cyan font-pixel text-lg font-bold drop-shadow-[0_0_5px_rgba(0,240,255,0.5)]">
                         CYCLE {turnCount} <span className="text-gray-500 text-sm">/ {maxTurns}</span>
                     </div>
-                    {isNearingEnd && (
+                    {isCompleted && (
+                        <div className="text-sanabi-pink text-xs mt-1 font-bold flex items-center gap-1">
+                            <Skull size={12} /> SESSION COMPLETED
+                        </div>
+                    )}
+                    {!isCompleted && isLastAction && (
+                        <div className="text-sanabi-gold text-xs mt-1 animate-pulse font-bold flex items-center gap-1">
+                            <Skull size={12} /> FINAL ACTION READY
+                        </div>
+                    )}
+                    {!isCompleted && !isLastAction && isNearingEnd && (
                         <div className="text-sanabi-pink text-xs mt-1 animate-pulse font-bold flex items-center gap-1">
                             <Skull size={12} /> CRITICAL FAILURE IMMINENT...
                         </div>
