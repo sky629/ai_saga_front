@@ -1,8 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { UserResponse } from '../types/api';
-import axios from 'axios';
 import { captureException, setSentryUser } from '../sentry';
-
+import { authService, setAuthFailureHandler } from '../services/gameService';
 
 interface AuthContextType {
     user: UserResponse | null;
@@ -10,20 +9,22 @@ interface AuthContextType {
     isLoading: boolean;
     login: () => void;
     logout: () => void;
-    setToken: (token: string) => void;
+    setToken: (token: string | null) => void;
     refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL =
+    import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<UserResponse | null>(null);
-    const [token, setTokenState] = useState<string | null>(localStorage.getItem('access_token'));
+    const [token, setTokenState] = useState<string | null>(
+        localStorage.getItem('access_token')
+    );
     const [isLoading, setIsLoading] = useState<boolean>(true);
 
-    // Set token and update localStorage
     const setToken = (newToken: string | null) => {
         if (newToken) {
             localStorage.setItem('access_token', newToken);
@@ -34,7 +35,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const login = () => {
-        // Direct redirect to backend to initiate Google OAuth flow
         window.location.href = `${API_BASE_URL}/auth/google/login/`;
     };
 
@@ -45,7 +45,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         window.location.href = '/login';
     };
 
-    // Fetch user profile when token changes
     const refreshUser = async () => {
         if (!token) {
             setUser(null);
@@ -56,19 +55,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         try {
             setIsLoading(true);
-            const response = await axios.get<UserResponse>(`${API_BASE_URL}/auth/self/`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            setUser(response.data);
+            const currentUser = await authService.getSelf();
+            setUser(currentUser);
             setSentryUser({
-                id: response.data.id,
-                email: response.data.email,
-                username: response.data.name
+                id: currentUser.id,
+                email: currentUser.email,
+                username: currentUser.name,
             });
         } catch (error) {
-            console.error('Failed to fetch user:', error);
             captureException(error, {
-                feature: 'auth_refresh_user'
+                feature: 'auth_refresh_user',
             });
             setToken(null);
             setUser(null);
@@ -78,39 +74,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    // Fetch user profile when token changes
     useEffect(() => {
-        refreshUser();
+        void refreshUser();
     }, [token]);
 
+    useEffect(() => {
+        setAuthFailureHandler(() => {
+            setToken(null);
+            setUser(null);
+            setSentryUser(null);
+            window.location.href = '/login';
+        });
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        return () => {
+            setAuthFailureHandler(null);
+        };
+    }, []);
 
     return (
-        <AuthContext.Provider value={{ user, token, isLoading, login, logout, setToken, refreshUser }}>
+        <AuthContext.Provider
+            value={{
+                user,
+                token,
+                isLoading,
+                login,
+                logout,
+                setToken,
+                refreshUser,
+            }}
+        >
             {children}
         </AuthContext.Provider>
     );

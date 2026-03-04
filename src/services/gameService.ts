@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import type {
     CharacterResponse,
     ScenarioResponse,
@@ -8,28 +9,103 @@ import type {
     StartGameRequest,
     CursorPaginatedResponse,
     MessageHistoryResponse,
-    IllustrationResponse
+    IllustrationResponse,
+    UserResponse,
 } from '../types/api';
 import { addSentryBreadcrumb, captureException } from '../sentry';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 const API_URL = `${API_BASE_URL}/game`;
+const AUTH_URL = `${API_BASE_URL}/auth`;
+
+type RetryableConfig = InternalAxiosRequestConfig & {
+    _retry?: boolean;
+};
+
+let refreshPromise: Promise<string> | null = null;
+let authFailureHandler: (() => void) | null = null;
 
 const api = axios.create({
     baseURL: API_URL,
+    withCredentials: true,
 });
 
-api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
+const authApi = axios.create({
+    baseURL: AUTH_URL,
+    withCredentials: true,
 });
+
+export function setAuthFailureHandler(handler: (() => void) | null) {
+    authFailureHandler = handler;
+}
+
+function getAccessToken() {
+    return localStorage.getItem('access_token');
+}
+
+function setAccessToken(token: string) {
+    localStorage.setItem('access_token', token);
+}
+
+async function refreshAccessToken(): Promise<string> {
+    if (!refreshPromise) {
+        refreshPromise = authApi
+            .post<{ access_token: string }>('/refresh/', {})
+            .then((response) => {
+                const newToken = response.data.access_token;
+                setAccessToken(newToken);
+                return newToken;
+            })
+            .finally(() => {
+                refreshPromise = null;
+            });
+    }
+    return refreshPromise;
+}
+
+function attachRequestInterceptor(client: typeof api) {
+    client.interceptors.request.use((config) => {
+        const token = getAccessToken();
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    });
+}
+
+attachRequestInterceptor(api);
+attachRequestInterceptor(authApi);
+
+async function handleAuthRetry(error: AxiosError) {
+    const originalConfig = error.config as RetryableConfig | undefined;
+    const statusCode = error.response?.status;
+
+    if (!originalConfig || statusCode !== 401 || originalConfig._retry) {
+        throw error;
+    }
+
+    if (originalConfig.url?.includes('/refresh/')) {
+        throw error;
+    }
+
+    originalConfig._retry = true;
+
+    try {
+        const newToken = await refreshAccessToken();
+        originalConfig.headers.Authorization = `Bearer ${newToken}`;
+        return api.request(originalConfig);
+    } catch (refreshError) {
+        localStorage.removeItem('access_token');
+        if (authFailureHandler) {
+            authFailureHandler();
+        }
+        throw refreshError;
+    }
+}
 
 api.interceptors.response.use(
     (response) => response,
-    (error) => {
+    async (error) => {
         if (axios.isAxiosError(error)) {
             const statusCode = error.response?.status;
             const url = error.config?.url;
@@ -54,6 +130,10 @@ api.interceptors.response.use(
                     method
                 });
             }
+
+            if (statusCode === 401) {
+                return handleAuthRetry(error);
+            }
         } else {
             captureException(error, {
                 type: 'unknown_api_error'
@@ -63,6 +143,23 @@ api.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
+authApi.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        if (axios.isAxiosError(error) && error.response?.status === 401) {
+            return handleAuthRetry(error);
+        }
+        return Promise.reject(error);
+    }
+);
+
+export const authService = {
+    getSelf: async (): Promise<UserResponse> => {
+        const response = await authApi.get<UserResponse>('/self/');
+        return response.data;
+    },
+};
 
 export const gameService = {
     getCharacters: async (): Promise<CharacterResponse[]> => {
