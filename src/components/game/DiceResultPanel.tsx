@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState } from 'react';
 import type { DiceResult } from '../../types/api';
 
 interface DiceResultPanelProps {
@@ -7,15 +7,20 @@ interface DiceResultPanelProps {
 }
 
 export const DiceResultPanel: React.FC<DiceResultPanelProps> = ({ diceResult, onComplete }) => {
-  useEffect(() => {
-    if (diceResult && onComplete) {
-      onComplete();
-    }
-  }, [diceResult, onComplete]);
+  const [phase, setPhase] = useState<'idle' | 'revealed'>('idle');
 
   if (!diceResult) {
     return null;
   }
+
+  const handleRollDice = () => {
+    if (phase !== 'idle') {
+      return;
+    }
+
+    setPhase('revealed');
+    onComplete?.();
+  };
 
   const getStatusStyles = () => {
     if (diceResult.is_critical) {
@@ -55,6 +60,43 @@ export const DiceResultPanel: React.FC<DiceResultPanelProps> = ({ diceResult, on
   };
 
   const styles = getStatusStyles();
+
+  if (phase !== 'revealed') {
+    return (
+      <div
+        className="
+          mb-4 p-4 rounded-sm border-2 border-sanabi-cyan/60 font-mono
+          bg-black/70 shadow-[0_0_18px_rgba(0,240,255,0.12)]
+        "
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.3em] text-sanabi-cyan/60">
+              Dice Check
+            </div>
+            <div className="mt-1 text-sm font-bold text-white">
+              행동을 시도할 순간입니다
+            </div>
+            <div className="mt-1 text-[11px] text-gray-400">
+              주사위를 굴리면 결과와 다음 상황이 이어집니다.
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleRollDice}
+            className="
+              min-w-36 rounded-sm border border-sanabi-gold bg-sanabi-gold/90
+              px-4 py-2 text-xs font-bold uppercase tracking-[0.25em] text-black
+              transition-all hover:bg-sanabi-gold
+            "
+          >
+            주사위 굴리기
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

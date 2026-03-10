@@ -38,6 +38,7 @@ export default function GameSession() {
     const [actionInput, setActionInput] = useState('');
     const [diceResult, setDiceResult] = useState<DiceResult | null>(null);
     const [pendingNarrative, setPendingNarrative] = useState<any | null>(null);
+    const [diceSequence, setDiceSequence] = useState(0);
     const [actionError, setActionError] = useState<string | null>(null);
     const [isSessionEnded, setIsSessionEnded] = useState(false);
 
@@ -230,6 +231,7 @@ export default function GameSession() {
                     setLocalMessages(prev => [...prev, beforeMsg]);
                 }
                 setDiceResult(data.dice_result);
+                setDiceSequence(prev => prev + 1);
                 setPendingNarrative({
                     systemMsg,
                     xpMsg,
@@ -386,6 +388,7 @@ export default function GameSession() {
                                             <div className="flex-1 overflow-hidden relative flex flex-col min-h-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-opacity-5">
                                                 <div className="p-4 pb-0">
                                                     <DiceResultPanel 
+                                                        key={diceResult ? `dice-${diceSequence}` : 'no-dice'}
                                                         diceResult={diceResult} 
                                                         onComplete={handleDiceComplete}
                                                     />
