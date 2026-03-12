@@ -17,9 +17,24 @@ export interface StateChanges {
     discoveries?: string[];
 }
 
+export type GameActionType =
+    | 'combat'
+    | 'social'
+    | 'skill'
+    | 'movement'
+    | 'observation'
+    | 'rest'
+    | 'exploration';
+
+export interface GameActionOption {
+    label: string;
+    action_type: GameActionType;
+    requires_dice: boolean;
+}
+
 export interface ParsedGameResponse {
     narrative: string;
-    options: string[];
+    options: GameActionOption[];
     state_changes?: StateChanges;
 }
 
@@ -110,6 +125,7 @@ export interface MessageHistoryResponse {
 
 export interface GameActionRequest {
     action: string;
+    action_type?: GameActionType;
 }
 
 export interface DiceResult {
@@ -129,7 +145,7 @@ export interface GameActionResponse {
     message: GameMessageResponse;
     narrative: string;
     before_roll_narrative?: string | null;
-    options: string[];
+    options: GameActionOption[];
     turn_count: number;
     max_turns: number;
     is_ending: boolean;

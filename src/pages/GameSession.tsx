@@ -17,6 +17,8 @@ import type {
     MessageHistoryResponse,
     ScenarioResponse,
     DiceResult,
+    GameActionOption,
+    GameActionType,
     GameActionResponse,
     GameTurnResponse
 } from '../types/api';
@@ -36,6 +38,7 @@ export default function GameSession() {
     const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [isCheckingSession, setIsCheckingSession] = useState(true);
     const [actionInput, setActionInput] = useState('');
+    const [selectedActionType, setSelectedActionType] = useState<GameActionType | null>(null);
     const [diceResult, setDiceResult] = useState<DiceResult | null>(null);
     const [pendingNarrative, setPendingNarrative] = useState<any | null>(null);
     const [diceSequence, setDiceSequence] = useState(0);
@@ -153,9 +156,15 @@ export default function GameSession() {
 
     // 4. Action Mutation
     const sendActionMutation = useMutation({
-        mutationFn: (action: string) => {
+        mutationFn: ({
+            action,
+            actionType,
+        }: {
+            action: string;
+            actionType?: GameActionType | null;
+        }) => {
             if (!sessionId) throw new Error("No active session");
-            return gameService.sendAction(sessionId, action);
+            return gameService.sendAction(sessionId, action, actionType);
         },
         onSuccess: (data) => {
             // New Action start: Clear previous dice result immediately
@@ -198,10 +207,8 @@ export default function GameSession() {
             }
 
             const systemMsg: GameMessageResponse = {
-                id: data.message.id || `sys-${Date.now()}`,
+                ...data.message,
                 role: 'system',
-                content: `${data.narrative}\n\n${data.message.content}`,
-                created_at: new Date().toISOString()
             };
 
             const xpMsg = data.xp_gained && data.xp_gained > 0 ? {
@@ -259,6 +266,8 @@ export default function GameSession() {
         // Clear previous results immediately for UI responsiveness
         setDiceResult(null);
         setPendingNarrative(null);
+        const actionType = selectedActionType;
+        setSelectedActionType(null);
 
         const tempMsg: GameMessageResponse = {
             id: `temp-${Date.now()}`,
@@ -270,7 +279,10 @@ export default function GameSession() {
 
         try {
             setActionError(null);
-            await sendActionMutation.mutateAsync(content);
+            await sendActionMutation.mutateAsync({
+                action: content,
+                actionType,
+            });
         } catch (error) {
             console.error("Action failed", error);
             if ((error as any).response?.status === 429) {
@@ -393,10 +405,14 @@ export default function GameSession() {
                                                         onComplete={handleDiceComplete}
                                                     />
                                                 </div>
-                                                <MessageHistory
+                                                    <MessageHistory
                                                     messages={localMessages}
                                                     isLoading={!!sendActionMutation.isPending}
-                                                    onActionSelect={(action) => setActionInput(action)}
+                                                    onActionSelect={(option: GameActionOption) => {
+                                                        setActionInput(option.label);
+                                                        setSelectedActionType(option.action_type);
+                                                        if (actionError) setActionError(null);
+                                                    }}
                                                     sessionId={sessionId}
                                                 />
                                             </div>
@@ -420,6 +436,7 @@ export default function GameSession() {
                                                 value={actionInput}
                                                 onChange={(val) => {
                                                     setActionInput(val);
+                                                    setSelectedActionType(null);
                                                     if (actionError) setActionError(null);
                                                 }}
                                             />

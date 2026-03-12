@@ -6,6 +6,7 @@ import type {
     GameSessionResponse,
     GameTurnResponse,
     GameActionRequest,
+    GameActionType,
     StartGameRequest,
     CursorPaginatedResponse,
     MessageHistoryResponse,
@@ -203,8 +204,15 @@ export const gameService = {
         return response.data;
     },
 
-    sendAction: async (sessionId: string, action: string): Promise<GameTurnResponse> => {
-        const payload: GameActionRequest = { action };
+    sendAction: async (
+        sessionId: string,
+        action: string,
+        actionType?: GameActionType | null
+    ): Promise<GameTurnResponse> => {
+        const payload: GameActionRequest = {
+            action,
+            ...(actionType ? { action_type: actionType } : {})
+        };
         const response = await api.post<GameTurnResponse>(`/sessions/${sessionId}/actions/`, payload, {
             headers: {
                 'Idempotency-Key': self.crypto.randomUUID()

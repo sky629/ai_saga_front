@@ -1,6 +1,13 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
-import type { GameMessageResponse, MessageHistoryResponse, ParsedGameResponse, StateChanges } from '../../types/api';
+import type {
+    GameActionOption,
+    GameActionType,
+    GameMessageResponse,
+    MessageHistoryResponse,
+    ParsedGameResponse,
+    StateChanges,
+} from '../../types/api';
 import { cn } from '../../utils/cn';
 import { Sparkles, Skull, MapPin, Package, Users, Palette, Loader2, ImageOff } from 'lucide-react';
 import { gameService } from '../../services/gameService';
@@ -8,14 +15,120 @@ import { gameService } from '../../services/gameService';
 interface MessageHistoryProps {
     messages: (GameMessageResponse | MessageHistoryResponse)[];
     isLoading?: boolean;
-    onActionSelect?: (action: string) => void;
+    onActionSelect?: (option: GameActionOption) => void;
     sessionId?: string | null;
 }
 
-// Utility to parse potentially JSON-encoded content
-// Utility to parse potentially JSON-encoded content
+const DICE_ACTION_TYPES: GameActionType[] = [
+    'combat',
+    'social',
+    'skill',
+    'exploration',
+];
+
+function inferActionType(label: string): GameActionType {
+    const normalized = label.toLowerCase().trim();
+
+    if (['공격', '베기', '찌르기', '전투', 'attack', 'fight', 'strike', 'hit'].some(keyword => normalized.includes(keyword))) {
+        return 'combat';
+    }
+    if (['설득', '협상', '위협', 'persuade', 'negotiate', 'threaten'].some(keyword => normalized.includes(keyword))) {
+        return 'social';
+    }
+    if (['대화', '말', 'talk', 'speak'].some(keyword => normalized.includes(keyword))) {
+        return 'social';
+    }
+    if (['자물쇠', '함정', '해킹', '수리', 'unlock', 'disarm', 'hack', 'repair'].some(keyword => normalized.includes(keyword))) {
+        return 'skill';
+    }
+    if (['휴식', '쉰', 'rest', 'wait', '대기'].some(keyword => normalized.includes(keyword))) {
+        return 'rest';
+    }
+    if (['관찰', '살핀', '본다', 'look', 'observe', 'inspect'].some(keyword => normalized.includes(keyword))) {
+        return 'observation';
+    }
+    if (['이동', '간다', '걷', 'move', 'walk', 'go'].some(keyword => normalized.includes(keyword))) {
+        return 'movement';
+    }
+    if (['잠입', '탈출', '도망', '등반', '점프', '숨', 'escape', 'sneak', 'climb', 'jump'].some(keyword => normalized.includes(keyword))) {
+        return 'exploration';
+    }
+    return 'observation';
+}
+
+function requiresDice(actionType: GameActionType): boolean {
+    return DICE_ACTION_TYPES.includes(actionType);
+}
+
+function normalizeOption(option: unknown): GameActionOption | null {
+    if (typeof option === 'string') {
+        const actionType = inferActionType(option);
+        return {
+            label: option,
+            action_type: actionType,
+            requires_dice: requiresDice(actionType),
+        };
+    }
+
+    if (
+        typeof option === 'object' &&
+        option !== null &&
+        'label' in option &&
+        typeof option.label === 'string'
+    ) {
+        const rawActionType =
+            'action_type' in option && typeof option.action_type === 'string'
+                ? (option.action_type as GameActionType)
+                : inferActionType(option.label);
+        return {
+            label: option.label,
+            action_type: rawActionType,
+            requires_dice:
+                'requires_dice' in option &&
+                typeof option.requires_dice === 'boolean'
+                    ? option.requires_dice
+                    : requiresDice(rawActionType),
+        };
+    }
+
+    return null;
+}
+
+function normalizeOptions(options: unknown): GameActionOption[] {
+    if (!Array.isArray(options)) {
+        return [];
+    }
+
+    return options
+        .map(normalizeOption)
+        .filter((option): option is GameActionOption => option !== null);
+}
+
+function normalizeParsedResponse(parsed: unknown): ParsedGameResponse | null {
+    if (
+        typeof parsed !== 'object' ||
+        parsed === null ||
+        !('narrative' in parsed) ||
+        typeof parsed.narrative !== 'string'
+    ) {
+        return null;
+    }
+
+    return {
+        narrative: parsed.narrative,
+        options: normalizeOptions(
+            'options' in parsed ? parsed.options : []
+        ),
+        state_changes:
+            'state_changes' in parsed &&
+            typeof parsed.state_changes === 'object' &&
+            parsed.state_changes !== null
+                ? (parsed.state_changes as StateChanges)
+                : undefined,
+    };
+}
+
 function parseGameContent(content: string): ParsedGameResponse | null {
-    console.log("[DEBUG] parseGameContent called with:", content.substring(0, 50) + "...");
     try {
         let jsonString = content;
         const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
@@ -39,7 +152,7 @@ function parseGameContent(content: string): ParsedGameResponse | null {
         try {
             const parsed = JSON.parse(jsonString);
             if (typeof parsed === 'object' && parsed !== null && 'narrative' in parsed) {
-                return parsed;
+                return normalizeParsedResponse(parsed);
             }
         } catch (e) {
             // Check for unescaped control characters
@@ -90,13 +203,15 @@ function parseGameContent(content: string): ParsedGameResponse | null {
         }
 
         if (narrative) {
-            // Extract options array
             const optionsMatch = jsonString.match(/"options"\s*:\s*\[([\s\S]*?)\]/);
-            let options: string[] = [];
+            let options: GameActionOption[] = [];
             if (optionsMatch) {
                 const matches = optionsMatch[1].match(/"((?:[^"\\]|\\.)*)"/g);
                 if (matches) {
-                    options = matches.map(m => m.slice(1, -1).replace(/\\"/g, '"'));
+                    options = matches
+                        .map(m => m.slice(1, -1).replace(/\\"/g, '"'))
+                        .map(normalizeOption)
+                        .filter((option): option is GameActionOption => option !== null);
                 }
             }
 
@@ -282,7 +397,10 @@ export function MessageHistory({ messages, isLoading, onActionSelect, sessionId 
 
             {messages.map((msg, index) => {
                 const isSystem = msg.role !== 'user';
-                const parsed = isSystem ? parseGameContent(msg.content) : null;
+                const parsed = isSystem
+                    ? normalizeParsedResponse((msg as GameMessageResponse).parsed_response)
+                        ?? parseGameContent(msg.content)
+                    : null;
                 const narrative = parsed?.narrative || msg.content;
                 const options = parsed?.options;
                 const stateChanges = parsed?.state_changes;
@@ -385,7 +503,7 @@ export function MessageHistory({ messages, isLoading, onActionSelect, sessionId 
                                                             "font-bold min-w-[20px] font-mono",
                                                             isLatestMessage ? "text-sanabi-cyan group-hover:text-white" : "text-gray-600"
                                                         )}>{`0${idx + 1}`}</span>
-                                                        <span className="font-pixel relative z-10">{opt}</span>
+                                                        <span className="font-pixel relative z-10">{opt.label}</span>
 
                                                         {isLatestMessage && (
                                                             <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-sanabi-cyan">
