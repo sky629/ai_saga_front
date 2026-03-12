@@ -1,24 +1,35 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { gameService } from '../services/gameService';
 import { PixelLayout } from '../components/layout/PixelLayout';
 import { PixelCard } from '../components/layout/PixelCard';
 import { PixelButton } from '../components/layout/PixelButton';
 import { CreateCharacterModal } from '../components/game/CreateCharacterModal';
 import { ScenarioSelectionModal } from '../components/game/ScenarioSelectionModal';
-import { User, Plus, Sword, Heart } from 'lucide-react';
+import { User, Plus, Sword, Heart, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { ScenarioResponse } from '../types/api';
 import { cn } from '../utils/cn';
 
 export default function Dashboard() {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
     // Modal & Selection State
     const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [selectedScenario, setSelectedScenario] = useState<ScenarioResponse | null>(null);
     const [isStartingGame, setIsStartingGame] = useState(false);
+
+    const deleteSessionMutation = useMutation({
+        mutationFn: async (sessionId: string) => {
+            await gameService.deleteSession(sessionId);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['sessions'] });
+            queryClient.invalidateQueries({ queryKey: ['characters'] });
+        },
+    });
 
     // Fetch Sessions (instead of characters)
     const { data: sessionsData, isLoading } = useQuery({
@@ -63,6 +74,22 @@ export default function Dashboard() {
             setIsStartingGame(false);
             // Fallback: just close modal, user sees character in list
             setIsCreateModalOpen(false);
+        }
+    };
+
+    const handleDeleteSession = async (sessionId: string) => {
+        if (
+            !window.confirm(
+                '이 게임 세션을 삭제할까요? 진행 상황은 복구할 수 없습니다.'
+            )
+        ) {
+            return;
+        }
+
+        try {
+            await deleteSessionMutation.mutateAsync(sessionId);
+        } catch (error) {
+            console.error('Failed to delete session', error);
         }
     };
 
@@ -157,14 +184,24 @@ export default function Dashboard() {
                                         </div>
 
                                         {/* Actions */}
-                                        <PixelButton
-                                            variant="primary"
-                                            className="w-full flex justify-center items-center gap-2"
-                                            onClick={() => navigate(`/game/${session.character.id}`)}
-                                        >
-                                            <Sword size={16} />
-                                            CONTINUE
-                                        </PixelButton>
+                                        <div className="flex gap-2">
+                                            <PixelButton
+                                                variant="primary"
+                                                className="flex-1 flex justify-center items-center gap-2"
+                                                onClick={() => navigate(`/game/${session.character.id}`)}
+                                            >
+                                                <Sword size={16} />
+                                                CONTINUE
+                                            </PixelButton>
+                                            <PixelButton
+                                                variant="danger"
+                                                className="px-3 flex items-center justify-center"
+                                                onClick={() => handleDeleteSession(session.id)}
+                                                disabled={deleteSessionMutation.isPending}
+                                            >
+                                                <Trash2 size={16} />
+                                            </PixelButton>
+                                        </div>
                                     </div>
                                 </PixelCard>
                             ))}

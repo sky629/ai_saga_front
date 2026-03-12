@@ -18,6 +18,16 @@ export function PixelLayout({ children, className }: PixelLayoutProps) {
                     backgroundSize: '24px 24px'
                 }}
             />
+            {/* Subtle scanline overlay */}
+            <div
+                className="absolute inset-0 pointer-events-none z-0 opacity-[0.08]"
+                style={{
+                    backgroundImage:
+                        'linear-gradient(to bottom, rgba(255,255,255,0.06) 0, rgba(255,255,255,0.06) 1px, transparent 1px, transparent 4px)',
+                    backgroundSize: '100% 4px',
+                    mixBlendMode: 'screen',
+                }}
+            />
             {/* Subtle radial glow */}
             <div className="absolute inset-0 pointer-events-none z-0"
                 style={{

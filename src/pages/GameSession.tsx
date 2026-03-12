@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { gameService } from '../services/gameService';
 import { useAuth } from '../context/AuthContext';
@@ -29,6 +29,7 @@ function isGameActionResponse(data: GameTurnResponse): data is GameActionRespons
 
 export default function GameSession() {
     const { characterId } = useParams<{ characterId: string }>();
+    const navigate = useNavigate();
     const queryClient = useQueryClient();
     const { refreshUser } = useAuth();
 
@@ -243,7 +244,8 @@ export default function GameSession() {
                     systemMsg,
                     xpMsg,
                     lvMsg,
-                    shouldRefresh: !!data.xp_gained
+                    shouldRefresh: !!data.xp_gained,
+                    shouldInvalidateSession: true,
                 });
             } else {
                 // No dice: reveal everything immediately
@@ -252,13 +254,13 @@ export default function GameSession() {
                 if (lvMsg) updates.push(lvMsg);
                 setLocalMessages(prev => [...prev, ...updates]);
                 if (data.xp_gained) refreshUser();
+                queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
+                queryClient.invalidateQueries({ queryKey: ['characters'] });
             }
             
             if (data.image_url) {
                 setImageUrl(data.image_url);
             }
-            queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
-            queryClient.invalidateQueries({ queryKey: ['characters'] });
         }
     });
 
@@ -295,32 +297,20 @@ export default function GameSession() {
 
     const handleDiceComplete = () => {
         if (pendingNarrative) {
-            const { systemMsg, xpMsg, lvMsg, shouldRefresh } = pendingNarrative;
+            const { systemMsg, xpMsg, lvMsg, shouldRefresh, shouldInvalidateSession } = pendingNarrative;
             const updates: any[] = [systemMsg];
             if (xpMsg) updates.push(xpMsg);
             if (lvMsg) updates.push(lvMsg);
             
             setLocalMessages(prev => [...prev, ...updates]);
             if (shouldRefresh) refreshUser();
+            if (shouldInvalidateSession) {
+                queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
+                queryClient.invalidateQueries({ queryKey: ['characters'] });
+            }
             setPendingNarrative(null);
         }
     };
-
-    // 5. Delete Session Mutation
-    const deleteSessionMutation = useMutation({
-        mutationFn: async () => {
-            if (!sessionId) throw new Error("No active session");
-            return await gameService.deleteSession(sessionId);
-        },
-        onSuccess: () => {
-            setSessionId(null);
-            setIsSessionEnded(false);
-            setLocalMessages([]);
-            setShowScenarioSelect(true);
-            setDiceResult(null);
-            queryClient.invalidateQueries({ queryKey: ['characters'] });
-        }
-    });
 
     if (isLoadingChar || !character) {
         return (
@@ -483,17 +473,12 @@ export default function GameSession() {
 
                         <div className="mt-auto shrink-0 pb-1">
                             <PixelButton
-                                variant="danger"
+                                variant="secondary"
                                 size="sm"
                                 className="w-full"
-                                onClick={() => {
-                                    if (window.confirm("Are you sure you want to abandon this adventure? Progress will be lost.")) {
-                                        deleteSessionMutation.mutate();
-                                    }
-                                }}
-                                disabled={deleteSessionMutation.isPending}
+                                onClick={() => navigate('/')}
                             >
-                                {deleteSessionMutation.isPending ? 'Abandoning...' : 'Abandon Adventure'}
+                                BACK TO GAME LIST
                             </PixelButton>
                         </div>
                     </div>
