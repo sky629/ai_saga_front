@@ -476,9 +476,9 @@ export default function GameSession() {
                                 variant="secondary"
                                 size="sm"
                                 className="w-full"
-                                onClick={() => navigate('/')}
+                                onClick={() => navigate('/stories')}
                             >
-                                BACK TO GAME LIST
+                                BACK TO STORIES
                             </PixelButton>
                         </div>
                     </div>

@@ -4,6 +4,7 @@ import { useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import GoogleCallback from './pages/GoogleCallback';
 import Dashboard from './pages/Dashboard';
+import Stories from './pages/Stories';
 import GameSession from './pages/GameSession';
 import { MonitorLayout } from './components/layout/MonitorLayout';
 
@@ -38,6 +39,14 @@ export default function AppRoutes() {
                 element={
                     <PrivateRoute>
                         <Dashboard />
+                    </PrivateRoute>
+                }
+            />
+            <Route
+                path="/stories"
+                element={
+                    <PrivateRoute>
+                        <Stories />
                     </PrivateRoute>
                 }
             />

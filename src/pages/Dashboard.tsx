@@ -1,238 +1,267 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { gameService } from '../services/gameService';
+import { useNavigate } from 'react-router-dom';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import {
+    ChevronDown,
+    ChevronUp,
+    Compass,
+    Layers3,
+    MapPinned,
+    Sparkles,
+    Swords,
+} from 'lucide-react';
 import { PixelLayout } from '../components/layout/PixelLayout';
-import { PixelCard } from '../components/layout/PixelCard';
 import { PixelButton } from '../components/layout/PixelButton';
 import { CreateCharacterModal } from '../components/game/CreateCharacterModal';
-import { ScenarioSelectionModal } from '../components/game/ScenarioSelectionModal';
-import { User, Plus, Sword, Heart, Trash2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { gameService } from '../services/gameService';
 import type { ScenarioResponse } from '../types/api';
 import { cn } from '../utils/cn';
 
+const DIFFICULTY_LABELS: Record<string, string> = {
+    easy: '쉬움',
+    normal: '보통',
+    hard: '어려움',
+};
+const DEFAULT_SCENARIO_THUMBNAIL_URL =
+    'https://pub-3c25697921ae4f12aac4c4cfdbb57cc4.r2.dev/dummy.png';
+
+function ScenarioCard({
+    scenario,
+    onSelect,
+}: {
+    scenario: ScenarioResponse;
+    onSelect: (scenario: ScenarioResponse) => void;
+}) {
+    const difficultyLabel =
+        DIFFICULTY_LABELS[scenario.difficulty] || scenario.difficulty;
+    const [isWorldExpanded, setIsWorldExpanded] = useState(false);
+    const thumbnailUrl =
+        scenario.thumbnail_url || DEFAULT_SCENARIO_THUMBNAIL_URL;
+
+    return (
+        <div
+            role="button"
+            tabIndex={0}
+            onClick={() => onSelect(scenario)}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onSelect(scenario);
+                }
+            }}
+            className={cn(
+                'group relative overflow-hidden rounded-sm border text-left',
+                'border-sanabi-cyan/20 bg-black/35 transition-all duration-300',
+                'cursor-pointer',
+                'hover:-translate-y-1 hover:border-sanabi-cyan hover:shadow-[0_0_30px_rgba(0,240,255,0.18)]'
+            )}
+        >
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(0,240,255,0.16),transparent_45%),linear-gradient(135deg,rgba(255,255,255,0.02),transparent)]" />
+            <div
+                className="relative h-72 w-full overflow-hidden border-b border-sanabi-cyan/10 bg-cover bg-center"
+                style={{
+                    backgroundImage: `linear-gradient(rgba(11,12,21,0.18), rgba(11,12,21,0.72)), url(${thumbnailUrl})`,
+                }}
+            >
+                <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(3,5,12,0.88),rgba(3,5,12,0.14)_55%,rgba(3,5,12,0.05))]" />
+                <div className="absolute left-0 right-0 top-0 flex items-start justify-between p-5">
+                    <div className="flex flex-wrap gap-2 max-w-[72%]">
+                        {scenario.tags.slice(0, 4).map((tag) => (
+                            <span
+                                key={tag}
+                                className="rounded-sm border border-sanabi-cyan/30 bg-black/35 px-2.5 py-1 text-[11px] text-sanabi-cyan backdrop-blur-sm"
+                            >
+                                #{tag}
+                            </span>
+                        ))}
+                    </div>
+                    <span className="rounded-sm border border-sanabi-pink/40 bg-black/45 px-3 py-1.5 text-[10px] uppercase tracking-[0.25em] text-sanabi-pink backdrop-blur-sm">
+                        {difficultyLabel}
+                    </span>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 p-6">
+                    <div className="space-y-3 max-w-3xl">
+                        <div className="flex items-center gap-2 text-sanabi-cyan/80 text-xs tracking-[0.25em] uppercase">
+                            <Compass size={13} />
+                            Scenario Archive
+                        </div>
+                        <div className="text-4xl font-semibold text-white leading-tight md:text-5xl">
+                            {scenario.name}
+                        </div>
+                        {scenario.hook && (
+                            <div className="max-w-2xl text-base leading-7 text-sanabi-gold">
+                                "{scenario.hook}"
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <div className="relative z-10 p-6 space-y-5">
+                <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-sm border border-white/10 bg-black/30 px-3 py-1.5 text-[11px] text-gray-300">
+                        최대 {scenario.max_turns}턴
+                    </span>
+                    <span className="inline-flex items-center gap-2 rounded-sm border border-white/10 bg-black/30 px-3 py-1.5 text-[11px] text-gray-300">
+                        <MapPinned size={12} className="text-sanabi-cyan/70" />
+                        {scenario.initial_location || '시작 지점 미정'}
+                    </span>
+                </div>
+
+                <p className="max-w-4xl text-base leading-8 text-gray-300">
+                    {scenario.description}
+                </p>
+
+                <div className="rounded-sm border border-white/5 bg-black/25 p-4">
+                    <div className="text-[11px] uppercase tracking-[0.2em] text-sanabi-cyan/70">
+                        추천 대상
+                    </div>
+                    <p className="mt-2 text-sm leading-7 text-gray-300">
+                        {scenario.recommended_for || '모든 탐험가'}
+                    </p>
+                </div>
+
+                <div className="space-y-3 border-t border-sanabi-cyan/10 pt-5">
+                    <button
+                        type="button"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            setIsWorldExpanded((current) => !current);
+                        }}
+                        className="flex w-full items-center justify-between rounded-sm border border-sanabi-cyan/10 bg-black/20 px-4 py-3 text-left transition-colors hover:border-sanabi-cyan/30"
+                    >
+                        <span className="text-[11px] uppercase tracking-[0.25em] text-sanabi-cyan/70">
+                            세계관 미리보기
+                        </span>
+                        {isWorldExpanded ? (
+                            <ChevronUp size={16} className="text-sanabi-cyan/70" />
+                        ) : (
+                            <ChevronDown size={16} className="text-sanabi-cyan/70" />
+                        )}
+                    </button>
+                    {isWorldExpanded && (
+                        <div className="rounded-sm border border-sanabi-cyan/10 bg-black/25 p-4">
+                            <p className="text-sm leading-7 text-gray-300">
+                                {scenario.world_setting || '상세 세계관 정보는 게임 시작 후 드러납니다.'}
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function Dashboard() {
     const navigate = useNavigate();
-    const queryClient = useQueryClient();
-
-    // Modal & Selection State
-    const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false);
+    const [selectedScenario, setSelectedScenario] =
+        useState<ScenarioResponse | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    const [selectedScenario, setSelectedScenario] = useState<ScenarioResponse | null>(null);
     const [isStartingGame, setIsStartingGame] = useState(false);
 
-    const deleteSessionMutation = useMutation({
-        mutationFn: async (sessionId: string) => {
-            await gameService.deleteSession(sessionId);
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['sessions'] });
-            queryClient.invalidateQueries({ queryKey: ['characters'] });
-        },
-    });
-
-    // Fetch Sessions (instead of characters)
-    const { data: sessionsData, isLoading } = useQuery({
-        queryKey: ['sessions'],
-        queryFn: () => gameService.getSessions(20)
-    });
-
-    const sessions = sessionsData?.items;
-
-    // Fetch Scenarios (Prefetch or fetch on demand, here we fetch for the modal)
-    const { data: scenarios } = useQuery({
+    const { data: scenarios, isLoading } = useQuery({
         queryKey: ['scenarios'],
-        queryFn: gameService.getScenarios
+        queryFn: gameService.getScenarios,
     });
 
-    // Flow Step 1: User clicks "Create New Game" -> Open Scenario Selection
-    const handleNewGameClick = () => {
-        setIsScenarioModalOpen(true);
+    const startGameMutation = useMutation({
+        mutationFn: async ({
+            characterId,
+            scenarioId,
+        }: {
+            characterId: string;
+            scenarioId: string;
+        }) => {
+            return gameService.startGame(characterId, scenarioId);
+        },
+        onSuccess: (session) => {
+            navigate(`/game/${session.character_id}`);
+        },
+        onSettled: () => {
+            setIsStartingGame(false);
+        },
+    });
+
+    const handleScenarioSelect = (scenario: ScenarioResponse) => {
+        setSelectedScenario(scenario);
+        setIsCreateModalOpen(true);
     };
 
-    // Flow Step 2: User Selects Scenario -> Open Character Creation
-    const handleScenarioSelect = (scenarioId: string) => {
-        const scenario = scenarios?.find(s => s.id === scenarioId);
-        if (scenario) {
-            setSelectedScenario(scenario);
-            setIsScenarioModalOpen(false);
-            setIsCreateModalOpen(true);
-        }
-    };
-
-    // Flow Step 3: Character Created -> Start Game with Selected Scenario
     const handleCharacterCreated = async (characterId: string) => {
         if (!selectedScenario) return;
-
-        try {
-            setIsStartingGame(true);
-            console.log(`Starting game: Char=${characterId}, Scenario=${selectedScenario.id}`);
-            await gameService.startGame(characterId, selectedScenario.id);
-            navigate(`/game/${characterId}`);
-        } catch (error) {
-            console.error("Failed to auto-start game:", error);
-            setIsStartingGame(false);
-            // Fallback: just close modal, user sees character in list
-            setIsCreateModalOpen(false);
-        }
-    };
-
-    const handleDeleteSession = async (sessionId: string) => {
-        if (
-            !window.confirm(
-                '이 게임 세션을 삭제할까요? 진행 상황은 복구할 수 없습니다.'
-            )
-        ) {
-            return;
-        }
-
-        try {
-            await deleteSessionMutation.mutateAsync(sessionId);
-        } catch (error) {
-            console.error('Failed to delete session', error);
-        }
+        setIsStartingGame(true);
+        await startGameMutation.mutateAsync({
+            characterId,
+            scenarioId: selectedScenario.id,
+        });
     };
 
     return (
-        <PixelLayout>
-            <div className="h-full flex flex-col gap-6">
-                {/* Header Area */}
-                <div className="flex flex-col md:flex-row justify-between items-end border-b border-sanabi-cyan/20 pb-4">
-                    <div>
-                        <h1 className="text-4xl font-bold text-sanabi-cyan tracking-wider drop-shadow-[0_0_15px_rgba(0,240,255,0.5)]">
-                            GAME LIST
-                        </h1>
-                        <p className="text-sm text-gray-500 mt-2 flex items-center gap-2 tracking-wider">
-                            <span className="text-sanabi-cyan/50">//</span>
-                            <span>Your active and archived games</span>
-                        </p>
+        <PixelLayout className="max-w-[1500px]">
+            <div className="space-y-6">
+                <div className="flex flex-col gap-4 border-b border-sanabi-cyan/10 pb-6 md:flex-row md:items-end md:justify-between">
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-xs uppercase tracking-[0.35em] text-sanabi-cyan/70">
+                            <Sparkles size={14} />
+                            Scenario Discover
+                        </div>
+                        <div className="space-y-2">
+                            <h1 className="text-4xl leading-tight text-white md:text-5xl">
+                                시작할 모험을 선택하세요
+                            </h1>
+                            <p className="max-w-3xl text-sm leading-relaxed text-gray-400 md:text-base">
+                                시나리오를 고르면 곧바로 설문형 캐릭터 온보딩으로
+                                이어집니다. 이름, 나이, 성별, 외형을 정하고
+                                선택적으로 목표를 더해 첫 턴을 시작합니다.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
+                        <PixelButton
+                            variant="secondary"
+                            className="flex items-center gap-2"
+                            onClick={() => navigate('/stories')}
+                        >
+                            <Layers3 size={16} />
+                            내 스토리
+                        </PixelButton>
                     </div>
                 </div>
 
-                {/* Content Area */}
+                <div className="grid gap-4 rounded-sm border border-sanabi-cyan/10 bg-black/20 p-4 text-xs text-gray-400 md:grid-cols-3">
+                    <div className="rounded-sm border border-white/5 bg-black/30 p-4">
+                        <div className="text-sanabi-cyan">1. 시나리오 선택</div>
+                        <p className="mt-2 leading-relaxed">태그와 설정을 보고 오늘의 분위기에 맞는 모험을 고릅니다.</p>
+                    </div>
+                        <div className="rounded-sm border border-white/5 bg-black/30 p-4">
+                            <div className="text-sanabi-cyan">2. 캐릭터 온보딩</div>
+                            <p className="mt-2 leading-relaxed">이름과 기본 프로필은 필수로 정하고, 목표만 선택적으로 더합니다.</p>
+                        </div>
+                    <div className="rounded-sm border border-white/5 bg-black/30 p-4">
+                        <div className="text-sanabi-cyan">3. 첫 턴 진입</div>
+                        <p className="mt-2 leading-relaxed">생성된 프로필이 GM 프롬프트에 반영된 상태로 바로 게임이 시작됩니다.</p>
+                    </div>
+                </div>
+
                 {isLoading ? (
-                    <div className="flex-1 flex items-center justify-center text-sanabi-cyan animate-pulse text-xl tracking-widest">
-                        LOADING_DATA...
+                    <div className="flex min-h-[50vh] items-center justify-center text-xl tracking-[0.3em] text-sanabi-cyan">
+                        SCENARIO_FEED_LOADING
                     </div>
                 ) : (
-                    <>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {/* Session Cards */}
-                            {sessions?.map((session) => (
-                                <PixelCard
-                                    key={session.id}
-                                    title={session.character_name}
-                                    variant="cyber"
-                                    className="h-[320px] hover:-translate-y-1 transition-all duration-300 hover:shadow-[0_0_25px_rgba(0,240,255,0.2)]"
-                                >
-                                    <div className="h-full flex flex-col justify-between">
-                                        {/* Character Info */}
-                                        <div className="flex gap-4 items-start">
-                                            {/* Avatar */}
-                                            <div className="w-20 h-20 bg-black border border-sanabi-cyan/50 flex items-center justify-center shrink-0 shadow-[0_0_10px_rgba(0,240,255,0.3)] relative overflow-hidden">
-                                                <User size={40} className="text-sanabi-cyan/60 z-10" />
-                                                <div className="absolute inset-0 bg-sanabi-cyan/5 animate-pulse" />
-                                            </div>
-
-                                            <div className="flex-1 overflow-hidden">
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <span className="text-xs font-bold text-sanabi-gold uppercase tracking-wider">
-                                                        Level {session.character.stats.level}
-                                                    </span>
-                                                    <span className={cn(
-                                                        "text-[10px] px-2 py-0.5 font-bold rounded-sm border",
-                                                        session.status === 'completed'
-                                                            ? 'bg-sanabi-gold/10 text-sanabi-gold border-sanabi-gold/30'
-                                                            : session.status === 'abandoned'
-                                                                ? 'bg-sanabi-pink/10 text-sanabi-pink border-sanabi-pink/30'
-                                                                : 'bg-sanabi-green/10 text-sanabi-green border-sanabi-green/30 shadow-[0_0_5px_rgba(0,255,157,0.3)]'
-                                                    )}>
-                                                        {session.status.toUpperCase()}
-                                                    </span>
-                                                </div>
-                                                <h4 className="font-bold text-gray-200 truncate text-lg">
-                                                    {session.scenario_name}
-                                                </h4>
-                                                <p className="text-xs text-gray-500 mt-1 line-clamp-2 h-8">
-                                                    "{session.character.description || "Unknown operator..."}"
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* Stats Area */}
-                                        <div className="space-y-3 font-mono text-xs my-4 bg-black/30 p-3 rounded-sm border border-sanabi-pink/20">
-                                            <div className="flex justify-between items-center">
-                                                <div className="flex items-center gap-2 text-gray-400">
-                                                    <Heart size={14} className="text-sanabi-pink" />
-                                                    <span>Integrity</span>
-                                                </div>
-                                                <div className="flex items-center gap-2 font-bold text-gray-300">
-                                                    <span>{session.character.stats.hp}</span>
-                                                    <span className="text-gray-600">/</span>
-                                                    <span>{session.character.stats.max_hp}</span>
-                                                </div>
-                                            </div>
-
-                                            {/* Progress Bar */}
-                                            <div className="h-2.5 w-full bg-black/50 rounded-sm overflow-hidden border border-sanabi-pink/20">
-                                                <div
-                                                    className="h-full bg-sanabi-pink shadow-[0_0_10px_rgba(255,0,85,0.6)]"
-                                                    style={{ width: `${Math.min(100, (session.character.stats.hp / session.character.stats.max_hp) * 100)}%` }}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* Actions */}
-                                        <div className="flex gap-2">
-                                            <PixelButton
-                                                variant="primary"
-                                                className="flex-1 flex justify-center items-center gap-2"
-                                                onClick={() => navigate(`/game/${session.character.id}`)}
-                                            >
-                                                <Sword size={16} />
-                                                CONTINUE
-                                            </PixelButton>
-                                            <PixelButton
-                                                variant="danger"
-                                                className="px-3 flex items-center justify-center"
-                                                onClick={() => handleDeleteSession(session.id)}
-                                                disabled={deleteSessionMutation.isPending}
-                                            >
-                                                <Trash2 size={16} />
-                                            </PixelButton>
-                                        </div>
-                                    </div>
-                                </PixelCard>
-                            ))}
-
-                            {/* New Game Button */}
-                            <div
-                                onClick={handleNewGameClick}
-                                className="h-[320px] border border-dashed border-sanabi-cyan/30 hover:border-sanabi-cyan bg-sanabi-panel/30 hover:bg-sanabi-cyan/5 flex flex-col items-center justify-center gap-4 cursor-pointer text-gray-600 hover:text-sanabi-cyan transition-all group rounded-sm hover:shadow-[0_0_30px_rgba(0,240,255,0.15)]"
-                            >
-                                <div className="p-4 rounded-sm border border-current group-hover:scale-110 transition-transform bg-black/30 group-hover:shadow-[0_0_15px_rgba(0,240,255,0.3)]">
-                                    <Plus size={32} />
-                                </div>
-                                <div className="text-center">
-                                    <span className="font-bold tracking-widest uppercase block text-lg">NEW GAME</span>
-                                    <span className="text-xs opacity-70 mt-1 block tracking-wider">Start a new adventure</span>
-                                </div>
-                            </div>
-                        </div>
-                    </>
+                    <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+                        {scenarios?.map((scenario) => (
+                            <ScenarioCard
+                                key={scenario.id}
+                                scenario={scenario}
+                                onSelect={handleScenarioSelect}
+                            />
+                        ))}
+                    </div>
                 )}
             </div>
 
-            {/* Modals */}
-            {isScenarioModalOpen && scenarios && (
-                <ScenarioSelectionModal
-                    scenarios={scenarios}
-                    onSelect={handleScenarioSelect}
-                />
-            )}
-
-            {isCreateModalOpen && (
+            {isCreateModalOpen && selectedScenario && (
                 <CreateCharacterModal
                     onClose={() => setIsCreateModalOpen(false)}
                     onSuccess={handleCharacterCreated}
@@ -240,20 +269,19 @@ export default function Dashboard() {
                 />
             )}
 
-            {/* Loading Overlay */}
             {isStartingGame && (
-                <div className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center backdrop-blur-sm cursor-wait">
-                    <div className="flex flex-col items-center gap-6">
-                        <div className="relative">
-                            <div className="w-16 h-16 border-4 border-sanabi-cyan/30 rounded-full animate-spin"></div>
-                            <div className="absolute top-0 left-0 w-16 h-16 border-4 border-t-sanabi-cyan rounded-full animate-spin"></div>
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <Sword size={24} className="text-sanabi-cyan animate-pulse" />
-                            </div>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm">
+                    <div className="space-y-6 text-center">
+                        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-sanabi-cyan/40 bg-sanabi-cyan/10">
+                            <Swords size={28} className="text-sanabi-cyan" />
                         </div>
-                        <div className="text-center space-y-2">
-                            <h2 className="text-2xl font-bold text-sanabi-cyan tracking-[0.2em] animate-pulse">NOOSPHERE SYNC</h2>
-                            <p className="text-sm text-gray-400 font-mono tracking-wider">Generating game world... please wait.</p>
+                        <div className="space-y-2">
+                            <div className="text-2xl tracking-[0.3em] text-sanabi-cyan">
+                                WORLD BOOT
+                            </div>
+                            <p className="text-sm text-gray-400">
+                                캐릭터 프로필을 세계관에 동기화하고 있습니다.
+                            </p>
                         </div>
                     </div>
                 </div>

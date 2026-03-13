@@ -49,11 +49,18 @@ export interface CharacterResponse {
     user_id: string;
     scenario_id: string;
     name: string;
-    description?: string | null;
+    profile?: CharacterProfile | null;
     stats: CharacterStatsResponse;
     inventory: any[]; // Defined as empty object in spec for now
     is_active: boolean;
     created_at: string;
+}
+
+export interface CharacterProfile {
+    age: number;
+    gender: '남성' | '여성' | '비공개';
+    appearance: string;
+    goal?: string | null;
 }
 
 export interface UserResponse {
@@ -186,6 +193,10 @@ export interface ScenarioResponse {
     genre: string;
     difficulty: string;
     max_turns: number;
+    tags: string[];
+    thumbnail_url?: string | null;
+    hook?: string | null;
+    recommended_for?: string | null;
     world_setting?: string | null;
     initial_location?: string | null;
     is_active: boolean;

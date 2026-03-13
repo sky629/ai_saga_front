@@ -2,6 +2,7 @@ import axios from 'axios';
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import type {
     CharacterResponse,
+    CharacterProfile,
     ScenarioResponse,
     GameSessionResponse,
     GameTurnResponse,
@@ -173,11 +174,19 @@ export const gameService = {
         return response.data;
     },
 
-    createCharacter: async (name: string, description: string, scenarioId: string): Promise<CharacterResponse> => {
+    createCharacter: async ({
+        name,
+        scenarioId,
+        profile,
+    }: {
+        name: string;
+        scenarioId: string;
+        profile: CharacterProfile;
+    }): Promise<CharacterResponse> => {
         const response = await api.post<CharacterResponse>('/characters/', {
             name,
-            description,
-            scenario_id: scenarioId
+            scenario_id: scenarioId,
+            profile,
         });
         return response.data;
     },
