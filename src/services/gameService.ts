@@ -13,6 +13,7 @@ import type {
     MessageHistoryResponse,
     IllustrationResponse,
     UserResponse,
+    SessionListResponse,
 } from '../types/api';
 import { addSentryBreadcrumb, captureException } from '../sentry';
 
@@ -191,10 +192,12 @@ export const gameService = {
         return response.data;
     },
 
-    getSessions: async (limit = 20): Promise<CursorPaginatedResponse<any>> => {
-        // The API lists sessions generally, filtering by character might need query params if supported
-        // API Spec says: list_sessions_api_v1_game_sessions_get(limit, cursor, status)
-        const response = await api.get('/sessions/', { params: { limit } });
+    getSessions: async (
+        limit = 20
+    ): Promise<CursorPaginatedResponse<SessionListResponse>> => {
+        const response = await api.get<
+            CursorPaginatedResponse<SessionListResponse>
+        >('/sessions/', { params: { limit } });
         return response.data;
     },
 
@@ -229,20 +232,6 @@ export const gameService = {
         });
         return response.data;
     },
-
-
-    getLoginUrl: async (): Promise<{ auth_url: string }> => {
-        const response = await axios.get<{ auth_url: string }>(`${API_BASE_URL}/auth/google/login/`);
-        return response.data;
-    },
-
-    exchangeCodeForToken: async (code: string, state: string): Promise<{ access_token: string; token_type: string; user: any }> => {
-        const response = await axios.get<{ access_token: string; token_type: string; user: any }>(`${API_BASE_URL}/auth/google/callback/`, {
-            params: { code, state }
-        });
-        return response.data;
-    },
-
     deleteSession: async (sessionId: string): Promise<void> => {
         await api.delete(`/sessions/${sessionId}/`);
     },

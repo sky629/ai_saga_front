@@ -1,4 +1,4 @@
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { PixelLayout } from '../components/layout/PixelLayout';
 import { PixelCard } from '../components/layout/PixelCard';
 import { PixelButton } from '../components/layout/PixelButton';

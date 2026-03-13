@@ -1,6 +1,6 @@
 import type { CharacterResponse } from '../../types/api';
 import { Shield, Star } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../hooks/useAuth';
 
 interface StatusPanelProps {
     character: CharacterResponse;
@@ -37,7 +37,7 @@ export function StatusPanel({ character }: StatusPanelProps) {
                     {/* HP Bar */}
                     <div className="w-full">
                         <div className="flex justify-between text-sanabi-pink/80 text-[10px] font-bold mb-0.5 uppercase tracking-wider">
-                            <span className="flex items-center gap-1"><Shield size={10} /> Integrity</span>
+                            <span className="flex items-center gap-1"><Shield size={10} /> HP</span>
                             <span>{character.stats.hp}/{character.stats.max_hp}</span>
                         </div>
                         <div className="h-2.5 w-full bg-black/50 rounded-sm overflow-hidden border border-sanabi-pink/30">

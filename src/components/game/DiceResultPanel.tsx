@@ -3,10 +3,15 @@ import type { DiceResult } from '../../types/api';
 
 interface DiceResultPanelProps {
   diceResult: DiceResult | null | undefined;
+  hpChange?: number;
   onComplete?: () => void;
 }
 
-export const DiceResultPanel: React.FC<DiceResultPanelProps> = ({ diceResult, onComplete }) => {
+export const DiceResultPanel: React.FC<DiceResultPanelProps> = ({
+  diceResult,
+  hpChange = 0,
+  onComplete,
+}) => {
   const [phase, setPhase] = useState<'idle' | 'revealed'>('idle');
 
   if (!diceResult) {
@@ -60,6 +65,12 @@ export const DiceResultPanel: React.FC<DiceResultPanelProps> = ({ diceResult, on
   };
 
   const styles = getStatusStyles();
+  const displayedDamage =
+    diceResult.damage !== null && diceResult.damage > 0
+      ? diceResult.damage
+      : hpChange < 0
+        ? Math.abs(hpChange)
+        : null;
 
   if (phase !== 'revealed') {
     return (
@@ -148,9 +159,9 @@ export const DiceResultPanel: React.FC<DiceResultPanelProps> = ({ diceResult, on
         </div>
       </div>
 
-      {diceResult.damage !== null && diceResult.damage > 0 && (
+      {displayedDamage !== null && (
         <div className="mt-3 pt-2 border-t border-white/5 text-[10px] text-sanabi-pink font-bold flex items-center gap-2 uppercase tracking-widest">
-          <span className="text-sm">데미지: {diceResult.damage}</span>
+          <span className="text-sm">DEMAGE: {displayedDamage}</span>
         </div>
       )}
     </div>

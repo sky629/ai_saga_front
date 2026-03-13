@@ -107,7 +107,7 @@ export default function Stories() {
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2 text-gray-400">
                                                 <Heart size={14} className="text-sanabi-pink" />
-                                                <span>Integrity</span>
+                                                <span>HP</span>
                                             </div>
                                             <div className="flex items-center gap-2 font-bold text-gray-300">
                                                 <span>{session.character.stats.hp}</span>

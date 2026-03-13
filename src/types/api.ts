@@ -2,10 +2,10 @@
 
 // Game State Structures
 export interface GameState {
-    items: string[];
-    visited_locations: string[];
-    met_npcs: string[];
-    discoveries: string[];
+    items?: string[];
+    visited_locations?: string[];
+    met_npcs?: string[];
+    discoveries?: string[];
 }
 
 export interface StateChanges {
@@ -51,7 +51,7 @@ export interface CharacterResponse {
     name: string;
     profile?: CharacterProfile | null;
     stats: CharacterStatsResponse;
-    inventory: any[]; // Defined as empty object in spec for now
+    inventory: unknown[];
     is_active: boolean;
     created_at: string;
 }
@@ -83,7 +83,7 @@ export interface SessionListResponse {
     id: string;
     character_name: string;
     scenario_name: string;
-    status: 'active' | 'completed' | 'abandoned';
+    status: 'active' | 'paused' | 'completed' | 'ended';
     turn_count: number;
     max_turns: number;
     started_at: string;
@@ -117,7 +117,7 @@ export interface GameMessageResponse {
     id: string;
     role: string;
     content: string;
-    parsed_response?: Record<string, any> | null;
+    parsed_response?: Record<string, unknown> | null;
     image_url?: string | null;
     created_at: string;
 }
@@ -127,7 +127,7 @@ export interface MessageHistoryResponse {
     role: string;
     content: string;
     created_at: string;
-    parsed_response?: Record<string, any> | null;
+    parsed_response?: Record<string, unknown> | null;
 }
 
 export interface GameActionRequest {

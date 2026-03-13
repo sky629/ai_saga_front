@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { useRef, useEffect, useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type {
@@ -154,7 +155,7 @@ function parseGameContent(content: string): ParsedGameResponse | null {
             if (typeof parsed === 'object' && parsed !== null && 'narrative' in parsed) {
                 return normalizeParsedResponse(parsed);
             }
-        } catch (e) {
+        } catch {
             // Check for unescaped control characters
         }
 
@@ -295,7 +296,11 @@ function StateChangeIndicator({ changes }: { changes: StateChanges }) {
                     changes.hp_change > 0 ? "text-sanabi-green" : "text-sanabi-pink"
                 )}>
                     {changes.hp_change < 0 ? <Skull size={12} /> : <div className="w-3 h-3 rounded-full bg-sanabi-green shadow-[0_0_5px_rgba(0,255,157,0.8)]" />}
-                    <span>{changes.hp_change > 0 ? '+' : ''}{changes.hp_change} INTEGRITY</span>
+                    <span>
+                        {changes.hp_change > 0
+                            ? `+${changes.hp_change} HEAL`
+                            : `-${Math.abs(changes.hp_change)} DAMAGE`}
+                    </span>
                 </div>
             )}
         </div>
@@ -322,8 +327,11 @@ function IllustrationSection({
         try {
             const result = await gameService.generateIllustration(sessionId, messageId);
             setImageUrl(result.image_url);
-        } catch (e: any) {
-            const msg = e?.response?.data?.message || 'ILLUST_ERROR: 일러스트 생성에 실패했습니다.';
+        } catch (error: unknown) {
+            const msg = axios.isAxiosError(error)
+                ? (error.response?.data as { message?: string } | undefined)
+                    ?.message || 'ILLUST_ERROR: 일러스트 생성에 실패했습니다.'
+                : 'ILLUST_ERROR: 일러스트 생성에 실패했습니다.';
             setError(msg);
         } finally {
             setIsLoading(false);
@@ -441,7 +449,7 @@ export function MessageHistory({ messages, isLoading, onActionSelect, sessionId 
                         >
                             <ReactMarkdown
                                 components={{
-                                    p: ({ node, ...props }) => (
+                                    p: ({ ...props }) => (
                                         <p
                                             style={{
                                                 marginBottom: '1.5rem',
@@ -453,12 +461,12 @@ export function MessageHistory({ messages, isLoading, onActionSelect, sessionId 
                                             {...props}
                                         />
                                     ),
-                                    ul: ({ node, ...props }) => <ul className="list-disc pl-5 space-y-2 text-sanabi-cyan/80" style={{ marginBottom: '1.5rem' }} {...props} />,
-                                    ol: ({ node, ...props }) => <ol className="list-decimal pl-5 space-y-2 text-sanabi-cyan/80" style={{ marginBottom: '1.5rem' }} {...props} />,
-                                    li: ({ node, ...props }) => <li className="pl-1 text-gray-300" style={{ lineHeight: '2rem', fontSize: '15px' }} {...props} />,
-                                    strong: ({ node, ...props }) => <strong className="font-bold text-sanabi-green bg-sanabi-green/10 px-1 rounded-sm shadow-[0_0_5px_rgba(0,255,157,0.3)] mx-1" {...props} />,
-                                    em: ({ node, ...props }) => <em className="text-sanabi-pink not-italic font-medium mx-0.5" {...props} />,
-                                    code: ({ node, ...props }) => <code className="font-mono text-xs bg-black/50 px-1.5 py-0.5 rounded border border-sanabi-cyan/30 text-sanabi-cyan mx-1" {...props} />,
+                                    ul: ({ ...props }) => <ul className="list-disc pl-5 space-y-2 text-sanabi-cyan/80" style={{ marginBottom: '1.5rem' }} {...props} />,
+                                    ol: ({ ...props }) => <ol className="list-decimal pl-5 space-y-2 text-sanabi-cyan/80" style={{ marginBottom: '1.5rem' }} {...props} />,
+                                    li: ({ ...props }) => <li className="pl-1 text-gray-300" style={{ lineHeight: '2rem', fontSize: '15px' }} {...props} />,
+                                    strong: ({ ...props }) => <strong className="font-bold text-sanabi-green bg-sanabi-green/10 px-1 rounded-sm shadow-[0_0_5px_rgba(0,255,157,0.3)] mx-1" {...props} />,
+                                    em: ({ ...props }) => <em className="text-sanabi-pink not-italic font-medium mx-0.5" {...props} />,
+                                    code: ({ ...props }) => <code className="font-mono text-xs bg-black/50 px-1.5 py-0.5 rounded border border-sanabi-cyan/30 text-sanabi-cyan mx-1" {...props} />,
                                 }}
                             >
                                 {narrative}

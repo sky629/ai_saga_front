@@ -1,6 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useAuth } from './context/AuthContext';
+import { useAuth } from './hooks/useAuth';
 import Login from './pages/Login';
 import GoogleCallback from './pages/GoogleCallback';
 import Dashboard from './pages/Dashboard';

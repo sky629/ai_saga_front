@@ -25,11 +25,11 @@ export function GameStatePanel({
             <div className="space-y-1">
                 <div className="flex items-center gap-2 text-sanabi-cyan/70 font-bold text-xs uppercase tracking-wide">
                     <Clock size={12} />
-                    <span>System Time</span>
+                    <span>Turn</span>
                 </div>
                 <div className="ml-5">
                     <div className="text-sanabi-cyan font-pixel text-lg font-bold drop-shadow-[0_0_5px_rgba(0,240,255,0.5)]">
-                        CYCLE {turnCount} <span className="text-gray-500 text-sm">/ {maxTurns}</span>
+                        TURN {turnCount} <span className="text-gray-500 text-sm">/ {maxTurns}</span>
                     </div>
                     {isCompleted && (
                         <div className="text-sanabi-pink text-xs mt-1 font-bold flex items-center gap-1">
@@ -38,7 +38,7 @@ export function GameStatePanel({
                     )}
                     {!isCompleted && isLastAction && (
                         <div className="text-sanabi-gold text-xs mt-1 animate-pulse font-bold flex items-center gap-1">
-                            <Skull size={12} /> FINAL ACTION READY
+                            <Skull size={12} /> FINAL TURN READY
                         </div>
                     )}
                     {!isCompleted && !isLastAction && isNearingEnd && (

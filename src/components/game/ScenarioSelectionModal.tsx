@@ -88,14 +88,19 @@ export function ScenarioSelectionModal({ scenarios, onSelect }: ScenarioSelectio
                                             <span className="flex items-center gap-1">
                                                 <span className="opacity-50">THREAT:</span>
                                                 <span className={cn(
-                                                    scenario.difficulty === 'hard' ? "text-sanabi-pink" :
-                                                        scenario.difficulty === 'medium' ? "text-sanabi-gold" : "text-sanabi-green"
+                                                    scenario.difficulty === 'nightmare'
+                                                        ? "text-red-400"
+                                                        : scenario.difficulty === 'hard'
+                                                            ? "text-sanabi-pink"
+                                                            : scenario.difficulty === 'normal'
+                                                                ? "text-sanabi-gold"
+                                                                : "text-sanabi-green"
                                                 )}>
                                                     {scenario.difficulty.toUpperCase()}
                                                 </span>
                                             </span>
                                             <span className="flex items-center gap-1">
-                                                <span className="opacity-50">CYCLES:</span>
+                                                <span className="opacity-50">TURNS:</span>
                                                 <span className="text-sanabi-cyan">{scenario.max_turns}</span>
                                             </span>
                                         </div>

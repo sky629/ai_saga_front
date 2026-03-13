@@ -1,19 +1,8 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import type { UserResponse } from '../types/api';
+import React, { useCallback, useEffect, useState } from 'react';
 import { captureException, setSentryUser } from '../sentry';
 import { authService, setAuthFailureHandler } from '../services/gameService';
-
-interface AuthContextType {
-    user: UserResponse | null;
-    token: string | null;
-    isLoading: boolean;
-    login: () => void;
-    logout: () => void;
-    setToken: (token: string | null) => void;
-    refreshUser: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import { AuthContext } from './auth-context';
+import type { UserResponse } from '../types/api';
 
 const API_BASE_URL =
     import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
@@ -25,27 +14,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
     const [isLoading, setIsLoading] = useState<boolean>(true);
 
-    const setToken = (newToken: string | null) => {
+    const setToken = useCallback((newToken: string | null) => {
         if (newToken) {
             localStorage.setItem('access_token', newToken);
         } else {
             localStorage.removeItem('access_token');
         }
         setTokenState(newToken);
-    };
+    }, []);
 
-    const login = () => {
+    const login = useCallback(() => {
         window.location.href = `${API_BASE_URL}/auth/google/login/`;
-    };
+    }, []);
 
-    const logout = () => {
+    const logout = useCallback(() => {
         setToken(null);
         setUser(null);
         setSentryUser(null);
         window.location.href = '/login';
-    };
+    }, [setToken]);
 
-    const refreshUser = async () => {
+    const refreshUser = useCallback(async () => {
         if (!token) {
             setUser(null);
             setSentryUser(null);
@@ -72,11 +61,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [token, setToken]);
 
     useEffect(() => {
         void refreshUser();
-    }, [token]);
+    }, [refreshUser]);
 
     useEffect(() => {
         setAuthFailureHandler(() => {
@@ -89,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return () => {
             setAuthFailureHandler(null);
         };
-    }, []);
+    }, [setToken]);
 
     return (
         <AuthContext.Provider
@@ -106,12 +95,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             {children}
         </AuthContext.Provider>
     );
-}
-
-export function useAuth() {
-    const context = useContext(AuthContext);
-    if (context === undefined) {
-        throw new Error('useAuth must be used within an AuthProvider');
-    }
-    return context;
 }

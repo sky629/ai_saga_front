@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { CyberpunkLayout } from '../components/layout/CyberpunkLayout';
-import { RetroWindow } from '../components/layout/RetroWindow';
+import { useAuth } from '../hooks/useAuth';
+import { ShieldCheck } from 'lucide-react';
+import { PixelCard } from '../components/layout/PixelCard';
+import { PixelLayout } from '../components/layout/PixelLayout';
 
 export default function GoogleCallback() {
     const [searchParams] = useSearchParams();
@@ -28,30 +29,38 @@ export default function GoogleCallback() {
     }, [searchParams, setToken, navigate]);
 
     return (
-        <CyberpunkLayout>
-            <div className="flex items-center justify-center h-full">
-                <RetroWindow
-                    title="SYSTEM_AUTH.exe"
-                    className="w-full max-w-md"
-                    variant="blue"
+        <PixelLayout className="max-w-3xl">
+            <div className="flex h-full items-center justify-center p-4">
+                <PixelCard
+                    variant="cyber"
+                    className="w-full max-w-xl overflow-hidden border-sanabi-cyan/40 p-0"
                 >
-                    <div className="flex flex-col items-center justify-center p-8 text-center space-y-6">
-                        <h2 className="text-xl font-bold text-cyber-neon animate-pulse tracking-widest">
+                    <div className="border-b border-sanabi-cyan/20 bg-black/70 px-6 py-4 text-center">
+                        <div className="flex items-center justify-center gap-2 text-xs uppercase tracking-[0.35em] text-sanabi-cyan/70">
+                            <ShieldCheck size={14} />
+                            Identity Sync
+                        </div>
+                        <h2 className="mt-3 text-2xl font-bold tracking-[0.2em] text-sanabi-cyan animate-pulse">
                             AUTHENTICATING...
                         </h2>
+                    </div>
 
-                        <div className="w-full h-4 bg-gray-900 border border-cyber-dim rounded-sm overflow-hidden relative">
-                            <div className="absolute top-0 left-0 h-full bg-cyber-crimson animate-[width_1.5s_ease-in-out_infinite] opacity-80" style={{ width: '100%' }} />
-                            <div className="absolute top-0 left-0 h-full w-full bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent)] animate-[shimmer_2s_infinite]" />
+                    <div className="space-y-6 p-8 text-center">
+                        <div className="h-3 w-full overflow-hidden rounded-sm border border-sanabi-cyan/20 bg-black/70">
+                            <div className="h-full w-full animate-pulse bg-gradient-to-r from-sanabi-cyan/20 via-sanabi-cyan to-sanabi-pink/40" />
                         </div>
 
-                        <div className="space-y-1 text-sm text-cyber-text-secondary">
-                            <p>ESTABLISHING SECURE CONNECTION</p>
-                            <p className="text-xs font-mono opacity-70">verifying_credentials_v4.2.1</p>
+                        <div className="space-y-2 text-sm text-gray-400">
+                            <p className="font-bold tracking-[0.2em] text-sanabi-cyan/90">
+                                ESTABLISHING SECURE CONNECTION
+                            </p>
+                            <p className="font-mono text-xs opacity-70">
+                                verifying_credentials_v4.2.1
+                            </p>
                         </div>
                     </div>
-                </RetroWindow>
+                </PixelCard>
             </div>
-        </CyberpunkLayout>
+        </PixelLayout>
     );
 }

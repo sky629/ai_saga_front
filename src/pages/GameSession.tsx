@@ -1,8 +1,9 @@
+import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { gameService } from '../services/gameService';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { PixelLayout } from '../components/layout/PixelLayout';
 import { PixelCard } from '../components/layout/PixelCard';
 import { PixelButton } from '../components/layout/PixelButton';
@@ -13,6 +14,7 @@ import { GameStatePanel } from '../components/game/GameStatePanel';
 import { ScenarioSelectionModal } from '../components/game/ScenarioSelectionModal';
 import { DiceResultPanel } from '../components/game/DiceResultPanel';
 import type {
+    CharacterResponse,
     GameMessageResponse,
     MessageHistoryResponse,
     ScenarioResponse,
@@ -20,11 +22,76 @@ import type {
     GameActionOption,
     GameActionType,
     GameActionResponse,
-    GameTurnResponse
+    GameTurnResponse,
 } from '../types/api';
 
 function isGameActionResponse(data: GameTurnResponse): data is GameActionResponse {
     return 'message' in data;
+}
+
+interface PendingNarrativeState {
+    systemMsg: GameMessageResponse;
+    xpMsg: GameMessageResponse | null;
+    lvMsg: GameMessageResponse | null;
+    hpChange: number;
+    shouldRefresh: boolean;
+    shouldInvalidateSession: boolean;
+}
+
+function getHttpStatus(error: unknown): number | undefined {
+    if (axios.isAxiosError(error)) {
+        return error.response?.status;
+    }
+    return undefined;
+}
+
+function extractHpChange(data: GameActionResponse): number {
+    if (data.state_changes && typeof data.state_changes.hp_change === 'number') {
+        return data.state_changes.hp_change;
+    }
+
+    const parsedResponse = data.message.parsed_response;
+    if (
+        typeof parsedResponse !== 'object' ||
+        parsedResponse === null ||
+        !('state_changes' in parsedResponse)
+    ) {
+        return 0;
+    }
+
+    const stateChanges = parsedResponse.state_changes;
+    if (
+        typeof stateChanges !== 'object' ||
+        stateChanges === null ||
+        !('hp_change' in stateChanges) ||
+        typeof stateChanges.hp_change !== 'number'
+    ) {
+        return 0;
+    }
+
+    return stateChanges.hp_change;
+}
+
+function applyHpChange(
+    character: CharacterResponse,
+    hpChange: number
+): CharacterResponse {
+    if (hpChange === 0) {
+        return character;
+    }
+
+    const nextHp = Math.max(
+        0,
+        Math.min(character.stats.max_hp, character.stats.hp + hpChange)
+    );
+
+    return {
+        ...character,
+        stats: {
+            ...character.stats,
+            hp: nextHp,
+        },
+    };
 }
 
 export default function GameSession() {
@@ -41,7 +108,9 @@ export default function GameSession() {
     const [actionInput, setActionInput] = useState('');
     const [selectedActionType, setSelectedActionType] = useState<GameActionType | null>(null);
     const [diceResult, setDiceResult] = useState<DiceResult | null>(null);
-    const [pendingNarrative, setPendingNarrative] = useState<any | null>(null);
+    const [dicePanelHpChange, setDicePanelHpChange] = useState(0);
+    const [pendingNarrative, setPendingNarrative] =
+        useState<PendingNarrativeState | null>(null);
     const [diceSequence, setDiceSequence] = useState(0);
     const [actionError, setActionError] = useState<string | null>(null);
     const [isSessionEnded, setIsSessionEnded] = useState(false);
@@ -55,6 +124,14 @@ export default function GameSession() {
         queryFn: gameService.getCharacters
     });
     const character = characters?.find(c => c.id === characterId);
+    const [localCharacter, setLocalCharacter] =
+        useState<CharacterResponse | null>(null);
+
+    useEffect(() => {
+        if (character) {
+            setLocalCharacter(character);
+        }
+    }, [character]);
 
     // 1.5. Fetch Session Info (for game_state)
     const { data: sessionData } = useQuery({
@@ -84,23 +161,20 @@ export default function GameSession() {
             try {
                 // Check for existing sessions for this character
                 const sessions = await gameService.getSessions(100);
-                const existingSession = sessions.items.find((s: any) =>
+                const existingSession = sessions.items.find((s) =>
                     s.character.id === characterId
                 );
 
                 if (existingSession) {
                     setSessionId(existingSession.id);
-                    if ((existingSession as any).image_url) {
-                        setImageUrl((existingSession as any).image_url);
-                    }
                 } else {
                     // No session found, load scenarios and prompt user (New Game)
                     const loadedScenarios = await gameService.getScenarios();
                     setScenarios(loadedScenarios);
                     setShowScenarioSelect(true);
                 }
-            } catch (e) {
-                console.error("Failed to check sessions", e);
+            } catch (error) {
+                console.error("Failed to check sessions", error);
             } finally {
                 setIsCheckingSession(false);
             }
@@ -134,16 +208,16 @@ export default function GameSession() {
             if (!sessionId) return null;
             try {
                 return await gameService.getSessionMessages(sessionId);
-            } catch (error: any) {
-                if (error.response?.status === 404) {
+            } catch (error: unknown) {
+                if (getHttpStatus(error) === 404) {
                     return { items: [], has_more: false, next_cursor: null };
                 }
                 throw error;
             }
         },
         enabled: !!sessionId,
-        retry: (failureCount, error: any) => {
-            if (error.response?.status === 404) return false;
+        retry: (failureCount, error: unknown) => {
+            if (getHttpStatus(error) === 404) return false;
             return failureCount < 3;
         }
     });
@@ -170,6 +244,7 @@ export default function GameSession() {
         onSuccess: (data) => {
             // New Action start: Clear previous dice result immediately
             setDiceResult(null);
+            setDicePanelHpChange(0);
             setPendingNarrative(null);
 
             if (!isGameActionResponse(data)) {
@@ -211,6 +286,13 @@ export default function GameSession() {
                 ...data.message,
                 role: 'system',
             };
+            const hpChange = extractHpChange(data);
+
+            if (hpChange !== 0) {
+                setLocalCharacter((current) =>
+                    current ? applyHpChange(current, hpChange) : current
+                );
+            }
 
             const xpMsg = data.xp_gained && data.xp_gained > 0 ? {
                 id: `xp-${Date.now()}`,
@@ -239,17 +321,19 @@ export default function GameSession() {
                     setLocalMessages(prev => [...prev, beforeMsg]);
                 }
                 setDiceResult(data.dice_result);
+                setDicePanelHpChange(hpChange);
                 setDiceSequence(prev => prev + 1);
                 setPendingNarrative({
                     systemMsg,
                     xpMsg,
                     lvMsg,
+                    hpChange,
                     shouldRefresh: !!data.xp_gained,
                     shouldInvalidateSession: true,
                 });
             } else {
                 // No dice: reveal everything immediately
-                const updates: any[] = [systemMsg];
+                const updates: GameMessageResponse[] = [systemMsg];
                 if (xpMsg) updates.push(xpMsg);
                 if (lvMsg) updates.push(lvMsg);
                 setLocalMessages(prev => [...prev, ...updates]);
@@ -267,6 +351,7 @@ export default function GameSession() {
     const handleSendAction = async (content: string) => {
         // Clear previous results immediately for UI responsiveness
         setDiceResult(null);
+        setDicePanelHpChange(0);
         setPendingNarrative(null);
         const actionType = selectedActionType;
         setSelectedActionType(null);
@@ -285,9 +370,9 @@ export default function GameSession() {
                 action: content,
                 actionType,
             });
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("Action failed", error);
-            if ((error as any).response?.status === 429) {
+            if (getHttpStatus(error) === 429) {
                 setActionError("System_Overload: Request limit exceeded. Please wait a moment.");
             } else {
                 setActionError("System_Error: Neural link interrupted. Please try again.");
@@ -298,7 +383,7 @@ export default function GameSession() {
     const handleDiceComplete = () => {
         if (pendingNarrative) {
             const { systemMsg, xpMsg, lvMsg, shouldRefresh, shouldInvalidateSession } = pendingNarrative;
-            const updates: any[] = [systemMsg];
+            const updates: GameMessageResponse[] = [systemMsg];
             if (xpMsg) updates.push(xpMsg);
             if (lvMsg) updates.push(lvMsg);
             
@@ -312,7 +397,7 @@ export default function GameSession() {
         }
     };
 
-    if (isLoadingChar || !character) {
+    if (isLoadingChar || !character || !localCharacter) {
         return (
             <PixelLayout>
                 <div className="flex h-full items-center justify-center text-pixel-brown animate-pulse text-lg font-bold">
@@ -388,10 +473,11 @@ export default function GameSession() {
                                             )}
 
                                             <div className="flex-1 overflow-hidden relative flex flex-col min-h-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-opacity-5">
-                                                <div className="p-4 pb-0">
+                                            <div className="p-4 pb-0">
                                                     <DiceResultPanel 
                                                         key={diceResult ? `dice-${diceSequence}` : 'no-dice'}
-                                                        diceResult={diceResult} 
+                                                        diceResult={diceResult}
+                                                        hpChange={dicePanelHpChange}
                                                         onComplete={handleDiceComplete}
                                                     />
                                                 </div>
@@ -443,10 +529,10 @@ export default function GameSession() {
                         <PixelCard variant="cyber" className="p-0 overflow-hidden shrink-0 border-sanabi-pink/50">
                             <div className="flex flex-col">
                                 <div className="bg-sanabi-panel text-sanabi-pink px-3 py-1.5 font-bold text-center border-b border-sanabi-pink/30 shrink-0 uppercase tracking-widest text-[10px] flex justify-between">
-                                    <span>Target.Status</span>
+                                    <span>내 정보</span>
                                     <span className="animate-pulse">_LIVE</span>
                                 </div>
-                                <StatusPanel character={character} />
+                                <StatusPanel character={localCharacter} />
                             </div>
                         </PixelCard>
 
@@ -455,7 +541,7 @@ export default function GameSession() {
                             <PixelCard variant="cyber" className="flex-1 min-h-[200px] flex flex-col p-0 border-sanabi-gold/50">
                                 <div className="flex flex-col h-full min-h-0">
                                     <div className="bg-sanabi-panel text-sanabi-gold px-4 py-2 font-bold text-center border-b border-sanabi-gold/30 shrink-0 uppercase tracking-widest text-xs flex justify-between">
-                                        <span>Mission.Log</span>
+                                        <span>현재 상황</span>
                                         <span>_SYNCED</span>
                                     </div>
                                     <div className="p-4 flex-1 overflow-y-auto min-h-0">
