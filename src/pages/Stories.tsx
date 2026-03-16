@@ -67,7 +67,6 @@ export default function Stories() {
                         {sessions?.map((session) => (
                             <PixelCard
                                 key={session.id}
-                                title={session.character_name}
                                 variant="cyber"
                                 className="h-[320px]"
                             >
@@ -94,7 +93,10 @@ export default function Stories() {
                                                     {session.status.toUpperCase()}
                                                 </span>
                                             </div>
-                                            <h4 className="truncate text-lg text-gray-200">
+                                            <h3 className="truncate text-2xl font-bold tracking-[0.08em] text-sanabi-cyan drop-shadow-[0_0_10px_rgba(0,240,255,0.18)]">
+                                                {session.character_name}
+                                            </h3>
+                                            <h4 className="mt-2 truncate text-lg text-gray-200">
                                                 {session.scenario_name}
                                             </h4>
                                             <p className="mt-1 line-clamp-2 h-8 text-xs text-gray-500">
