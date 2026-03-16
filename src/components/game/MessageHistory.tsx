@@ -18,6 +18,7 @@ interface MessageHistoryProps {
     isLoading?: boolean;
     onActionSelect?: (option: GameActionOption) => void;
     sessionId?: string | null;
+    canSelectActions?: boolean;
 }
 
 const DICE_ACTION_TYPES: GameActionType[] = [
@@ -103,6 +104,13 @@ function normalizeOptions(options: unknown): GameActionOption[] {
     return options
         .map(normalizeOption)
         .filter((option): option is GameActionOption => option !== null);
+}
+
+function decodeJsonString(value: string): string {
+    return value
+        .replace(/\\n/g, '\n')
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, '\\');
 }
 
 function normalizeParsedResponse(parsed: unknown): ParsedGameResponse | null {
@@ -207,12 +215,40 @@ function parseGameContent(content: string): ParsedGameResponse | null {
             const optionsMatch = jsonString.match(/"options"\s*:\s*\[([\s\S]*?)\]/);
             let options: GameActionOption[] = [];
             if (optionsMatch) {
-                const matches = optionsMatch[1].match(/"((?:[^"\\]|\\.)*)"/g);
-                if (matches) {
-                    options = matches
-                        .map(m => m.slice(1, -1).replace(/\\"/g, '"'))
-                        .map(normalizeOption)
-                        .filter((option): option is GameActionOption => option !== null);
+                const optionsBody = optionsMatch[1];
+                if (optionsBody.includes('"label"')) {
+                    const objectOptions = Array.from(
+                        optionsBody.matchAll(
+                            /"label"\s*:\s*"((?:[^"\\]|\\.)*)"(?:[\s\S]*?"action_type"\s*:\s*"((?:[^"\\]|\\.)*)")?/g
+                        )
+                    );
+
+                    options = objectOptions
+                        .map((match) =>
+                            normalizeOption({
+                                label: decodeJsonString(match[1]),
+                                action_type: match[2]
+                                    ? decodeJsonString(match[2])
+                                    : undefined,
+                            })
+                        )
+                        .filter(
+                            (option): option is GameActionOption =>
+                                option !== null
+                        );
+                } else {
+                    const matches = optionsBody.match(
+                        /"((?:[^"\\]|\\.)*)"/g
+                    );
+                    if (matches) {
+                        options = matches
+                            .map((m) => decodeJsonString(m.slice(1, -1)))
+                            .map(normalizeOption)
+                            .filter(
+                                (option): option is GameActionOption =>
+                                    option !== null
+                            );
+                    }
                 }
             }
 
@@ -388,7 +424,13 @@ function IllustrationSection({
     );
 }
 
-export function MessageHistory({ messages, isLoading, onActionSelect, sessionId }: MessageHistoryProps) {
+export function MessageHistory({
+    messages,
+    isLoading,
+    onActionSelect,
+    sessionId,
+    canSelectActions = true,
+}: MessageHistoryProps) {
     const bottomRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -405,6 +447,11 @@ export function MessageHistory({ messages, isLoading, onActionSelect, sessionId 
 
             {messages.map((msg, index) => {
                 const isSystem = msg.role !== 'user';
+                const isLatestMessage = index === messages.length - 1;
+                const shouldShowOptions =
+                    isSystem &&
+                    isLatestMessage &&
+                    canSelectActions;
                 const parsed = isSystem
                     ? normalizeParsedResponse((msg as GameMessageResponse).parsed_response)
                         ?? parseGameContent(msg.content)
@@ -486,38 +533,33 @@ export function MessageHistory({ messages, isLoading, onActionSelect, sessionId 
                                 )}
 
                                 {stateChanges && <StateChangeIndicator changes={stateChanges} />}
-                                {options && options.length > 0 && (
+                                {shouldShowOptions && options && options.length > 0 && (
                                     <div className="mt-4 pt-3 border-t border-sanabi-cyan/20">
                                         <span className="text-xs font-bold text-sanabi-cyan mb-2 block uppercase tracking-wide opacity-80 animate-pulse">Available Actions:</span>
                                         <div className="flex flex-col gap-2">
                                             {options.map((opt, idx) => {
-                                                const isLatestMessage = index === messages.length - 1;
                                                 return (
                                                     <div
                                                         key={idx}
-                                                        onClick={() => isLatestMessage && onActionSelect?.(opt)}
+                                                        onClick={() => onActionSelect?.(opt)}
                                                         className={cn(
                                                             "border px-3 py-3 text-sm rounded shadow-sm flex items-start gap-3 transition-all group relative overflow-hidden",
-                                                            isLatestMessage
-                                                                ? "bg-black/40 border-sanabi-cyan/40 text-gray-200 cursor-pointer hover:bg-sanabi-cyan/10 hover:border-sanabi-cyan hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] active:scale-[0.99]"
-                                                                : "bg-black/20 border-white/5 text-gray-600 cursor-not-allowed opacity-50"
+                                                            "bg-black/40 border-sanabi-cyan/40 text-gray-200 cursor-pointer hover:bg-sanabi-cyan/10 hover:border-sanabi-cyan hover:shadow-[0_0_15px_rgba(0,240,255,0.3)] active:scale-[0.99]"
                                                         )}
                                                     >
                                                         <div className={cn(
                                                             "absolute left-0 top-0 bottom-0 w-[2px] transition-all group-hover:bg-sanabi-cyan",
-                                                            isLatestMessage ? "bg-sanabi-cyan/30" : "bg-transparent"
+                                                            "bg-sanabi-cyan/30"
                                                         )} />
                                                         <span className={cn(
                                                             "font-bold min-w-[20px] font-mono",
-                                                            isLatestMessage ? "text-sanabi-cyan group-hover:text-white" : "text-gray-600"
+                                                            "text-sanabi-cyan group-hover:text-white"
                                                         )}>{`0${idx + 1}`}</span>
                                                         <span className="font-pixel relative z-10">{opt.label}</span>
 
-                                                        {isLatestMessage && (
-                                                            <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-sanabi-cyan">
-                                                                &lt;&lt;
-                                                            </div>
-                                                        )}
+                                                        <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-sanabi-cyan">
+                                                            &lt;&lt;
+                                                        </div>
                                                     </div>
                                                 );
                                             })}

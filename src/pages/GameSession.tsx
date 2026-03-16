@@ -484,6 +484,10 @@ export default function GameSession() {
                                                     <MessageHistory
                                                     messages={localMessages}
                                                     isLoading={!!sendActionMutation.isPending}
+                                                    canSelectActions={
+                                                        !isSessionEnded &&
+                                                        sessionData?.status !== 'completed'
+                                                    }
                                                     onActionSelect={(option: GameActionOption) => {
                                                         setActionInput(option.label);
                                                         setSelectedActionType(option.action_type);
