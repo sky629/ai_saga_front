@@ -43,7 +43,7 @@ export function GameStatePanel({
                     )}
                     {!isCompleted && !isLastAction && isNearingEnd && (
                         <div className="text-sanabi-pink text-xs mt-1 animate-pulse font-bold flex items-center gap-1">
-                            <Skull size={12} /> CRITICAL FAILURE IMMINENT...
+                            <Skull size={12} /> TURN LIMIT APPROACHING
                         </div>
                     )}
                 </div>
