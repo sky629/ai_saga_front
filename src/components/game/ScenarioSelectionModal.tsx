@@ -7,9 +7,16 @@ import { cn } from '../../utils/cn';
 interface ScenarioSelectionModalProps {
     scenarios: ScenarioResponse[];
     onSelect: (scenarioId: string) => void;
+    errorMessage?: string | null;
+    onDismissError?: () => void;
 }
 
-export function ScenarioSelectionModal({ scenarios, onSelect }: ScenarioSelectionModalProps) {
+export function ScenarioSelectionModal({
+    scenarios,
+    onSelect,
+    errorMessage,
+    onDismissError,
+}: ScenarioSelectionModalProps) {
     // If no scenarios are available
     if (!scenarios || scenarios.length === 0) {
         return (
@@ -38,6 +45,34 @@ export function ScenarioSelectionModal({ scenarios, onSelect }: ScenarioSelectio
 
     return (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 backdrop-blur-sm p-4 font-pixel">
+            {errorMessage && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/70 p-4">
+                    <PixelCard
+                        title="SYSTEM ALERT"
+                        className="w-full max-w-md"
+                        variant="cyber"
+                    >
+                        <div className="p-6 text-center space-y-4">
+                            <div className="text-sanabi-pink animate-pulse text-4xl mb-2 flex justify-center">
+                                <Skull size={44} />
+                            </div>
+                            <h3 className="text-lg text-sanabi-pink font-bold tracking-widest">
+                                START FAILED
+                            </h3>
+                            <p className="text-sm text-gray-300 leading-relaxed">
+                                {errorMessage}
+                            </p>
+                            <PixelButton
+                                onClick={onDismissError}
+                                variant="danger"
+                                className="mt-2"
+                            >
+                                확인
+                            </PixelButton>
+                        </div>
+                    </PixelCard>
+                </div>
+            )}
             <PixelCard title="SCENARIO SELECT" className="w-full max-w-5xl max-h-[85vh] flex flex-col" variant="cyber">
                 <div className="p-6 space-y-6 overflow-y-auto scrollbar-hide flex-1">
                     <div className="text-center space-y-2 mb-8">

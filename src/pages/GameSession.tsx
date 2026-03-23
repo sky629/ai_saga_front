@@ -45,6 +45,27 @@ function getHttpStatus(error: unknown): number | undefined {
     return undefined;
 }
 
+function getRetryAfterSeconds(error: unknown): number | undefined {
+    if (!axios.isAxiosError(error)) {
+        return undefined;
+    }
+
+    const retryAfter = error.response?.data?.retry_after_seconds;
+    if (typeof retryAfter === 'number' && Number.isFinite(retryAfter)) {
+        return retryAfter;
+    }
+
+    const retryAfterHeader = error.response?.headers?.['retry-after'];
+    if (typeof retryAfterHeader === 'string') {
+        const parsed = Number.parseInt(retryAfterHeader, 10);
+        if (Number.isFinite(parsed)) {
+            return parsed;
+        }
+    }
+
+    return undefined;
+}
+
 function extractHpChange(data: GameActionResponse): number {
     if (data.state_changes && typeof data.state_changes.hp_change === 'number') {
         return data.state_changes.hp_change;
@@ -117,6 +138,7 @@ export default function GameSession() {
 
     const [scenarios, setScenarios] = useState<ScenarioResponse[]>([]);
     const [showScenarioSelect, setShowScenarioSelect] = useState(false);
+    const [scenarioStartError, setScenarioStartError] = useState<string | null>(null);
 
     // 1. Fetch Character Info
     const { data: characters, isLoading: isLoadingChar } = useQuery({
@@ -189,6 +211,7 @@ export default function GameSession() {
     const handleScenarioSelect = async (scenarioId: string) => {
         if (!characterId) return;
         try {
+            setScenarioStartError(null);
             const newSession = await gameService.startGame(characterId, scenarioId);
             setSessionId(newSession.id);
             setIsSessionEnded(false);
@@ -196,8 +219,25 @@ export default function GameSession() {
                 setImageUrl(newSession.image_url);
             }
             setShowScenarioSelect(false);
-        } catch (e) {
-            console.error("Failed to start session", e);
+        } catch (error: unknown) {
+            console.error("Failed to start session", error);
+            if (getHttpStatus(error) === 429) {
+                const retryAfterSeconds = getRetryAfterSeconds(error);
+                if (retryAfterSeconds) {
+                    setScenarioStartError(
+                        `시나리오를 지금 시작할 수 없습니다. ${retryAfterSeconds}초 뒤에 다시 시도해주세요.`
+                    );
+                } else {
+                    setScenarioStartError(
+                        '시나리오를 지금 시작할 수 없습니다. 잠시 후 다시 시도해주세요.'
+                    );
+                }
+                return;
+            }
+
+            setScenarioStartError(
+                '시나리오 시작에 실패했습니다. 잠시 후 다시 시도해주세요.'
+            );
         }
     };
 
@@ -373,7 +413,16 @@ export default function GameSession() {
         } catch (error: unknown) {
             console.error("Action failed", error);
             if (getHttpStatus(error) === 429) {
-                setActionError("System_Overload: Request limit exceeded. Please wait a moment.");
+                const retryAfterSeconds = getRetryAfterSeconds(error);
+                if (retryAfterSeconds) {
+                    setActionError(
+                        `System_Overload: ${retryAfterSeconds}초 뒤에 다시 시도해주세요.`
+                    );
+                } else {
+                    setActionError(
+                        "System_Overload: Request limit exceeded. Please wait a moment."
+                    );
+                }
             } else {
                 setActionError("System_Error: Neural link interrupted. Please try again.");
             }
@@ -413,6 +462,8 @@ export default function GameSession() {
                 <ScenarioSelectionModal
                     scenarios={scenarios}
                     onSelect={handleScenarioSelect}
+                    errorMessage={scenarioStartError}
+                    onDismissError={() => setScenarioStartError(null)}
                 />
             ) : (
                 <div className="flex flex-col md:flex-row h-full gap-4 overflow-hidden p-4">
