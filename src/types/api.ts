@@ -33,6 +33,7 @@ export interface GameActionOption {
 }
 
 export interface ParsedGameResponse {
+    before_narrative?: string;
     narrative: string;
     options: GameActionOption[];
     state_changes?: StateChanges;

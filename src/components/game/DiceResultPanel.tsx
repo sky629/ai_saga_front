@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { DiceResult } from '../../types/api';
 
 interface DiceResultPanelProps {
@@ -24,8 +24,19 @@ export const DiceResultPanel: React.FC<DiceResultPanelProps> = ({
     }
 
     setPhase('revealed');
-    onComplete?.();
   };
+
+  useEffect(() => {
+    if (phase !== 'revealed') {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      onComplete?.();
+    }, 1200);
+
+    return () => window.clearTimeout(timer);
+  }, [phase, onComplete]);
 
   const getStatusStyles = () => {
     if (diceResult.is_critical) {

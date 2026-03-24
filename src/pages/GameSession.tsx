@@ -33,6 +33,7 @@ interface PendingNarrativeState {
     systemMsg: GameMessageResponse;
     xpMsg: GameMessageResponse | null;
     lvMsg: GameMessageResponse | null;
+    beforeMessageId?: string;
     hpChange: number;
     shouldRefresh: boolean;
     shouldInvalidateSession: boolean;
@@ -264,6 +265,9 @@ export default function GameSession() {
 
     // Sync initial messages
     useEffect(() => {
+        if (diceResult && pendingNarrative) {
+            return;
+        }
         if (messageHistory?.items) {
             setLocalMessages([...messageHistory.items].reverse());
         }
@@ -351,9 +355,11 @@ export default function GameSession() {
             // Handle delayed reveal if dice is involved
             if (data.dice_result) {
                 // Show before_roll_narrative immediately (pre-dice tension)
+                let beforeMessageId: string | undefined;
                 if (data.before_roll_narrative) {
+                    beforeMessageId = `before-${Date.now()}`;
                     const beforeMsg: GameMessageResponse = {
-                        id: `before-${Date.now()}`,
+                        id: beforeMessageId,
                         role: 'system',
                         content: data.before_roll_narrative,
                         created_at: new Date().toISOString()
@@ -367,6 +373,7 @@ export default function GameSession() {
                     systemMsg,
                     xpMsg,
                     lvMsg,
+                    beforeMessageId,
                     hpChange,
                     shouldRefresh: !!data.xp_gained,
                     shouldInvalidateSession: true,
@@ -431,12 +438,24 @@ export default function GameSession() {
 
     const handleDiceComplete = () => {
         if (pendingNarrative) {
-            const { systemMsg, xpMsg, lvMsg, shouldRefresh, shouldInvalidateSession } = pendingNarrative;
+            const {
+                systemMsg,
+                xpMsg,
+                lvMsg,
+                beforeMessageId,
+                shouldRefresh,
+                shouldInvalidateSession,
+            } = pendingNarrative;
             const updates: GameMessageResponse[] = [systemMsg];
             if (xpMsg) updates.push(xpMsg);
             if (lvMsg) updates.push(lvMsg);
             
-            setLocalMessages(prev => [...prev, ...updates]);
+            setLocalMessages(prev => {
+                const baseMessages = beforeMessageId
+                    ? prev.filter((msg) => msg.id !== beforeMessageId)
+                    : prev;
+                return [...baseMessages, ...updates];
+            });
             if (shouldRefresh) refreshUser();
             if (shouldInvalidateSession) {
                 queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
@@ -545,6 +564,11 @@ export default function GameSession() {
                                                         if (actionError) setActionError(null);
                                                     }}
                                                     sessionId={sessionId}
+                                                    autoScrollBehavior={
+                                                        diceResult && pendingNarrative
+                                                            ? 'auto'
+                                                            : 'smooth'
+                                                    }
                                                 />
                                             </div>
                                         </div>

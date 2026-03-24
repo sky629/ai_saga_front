@@ -19,6 +19,7 @@ interface MessageHistoryProps {
     onActionSelect?: (option: GameActionOption) => void;
     sessionId?: string | null;
     canSelectActions?: boolean;
+    autoScrollBehavior?: ScrollBehavior;
 }
 
 const DICE_ACTION_TYPES: GameActionType[] = [
@@ -113,6 +114,15 @@ function decodeJsonString(value: string): string {
         .replace(/\\\\/g, '\\');
 }
 
+function normalizeNarrativeText(value: string): string {
+    return value
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/?(b|strong)>/gi, '**')
+        .replace(/<\/?(i|em)>/gi, '*')
+        .replace(/&nbsp;/gi, ' ')
+        .trim();
+}
+
 function normalizeParsedResponse(parsed: unknown): ParsedGameResponse | null {
     if (
         typeof parsed !== 'object' ||
@@ -123,8 +133,18 @@ function normalizeParsedResponse(parsed: unknown): ParsedGameResponse | null {
         return null;
     }
 
+    const beforeNarrative =
+        'before_narrative' in parsed && typeof parsed.before_narrative === 'string'
+            ? normalizeNarrativeText(parsed.before_narrative)
+            : undefined;
+    const narrative = normalizeNarrativeText(parsed.narrative);
+
     return {
-        narrative: parsed.narrative,
+        before_narrative: beforeNarrative,
+        narrative:
+            beforeNarrative && beforeNarrative !== narrative
+                ? `${beforeNarrative}\n\n${narrative}`
+                : narrative,
         options: normalizeOptions(
             'options' in parsed ? parsed.options : []
         ),
@@ -173,10 +193,12 @@ function parseGameContent(content: string): ParsedGameResponse | null {
         let narrative = null;
 
         if (narrativeMatch) {
-            narrative = narrativeMatch[1]
+            narrative = normalizeNarrativeText(
+                narrativeMatch[1]
                 .replace(/\\n/g, '\n')
                 .replace(/\\"/g, '"')
-                .replace(/\\\\/g, '\\');
+                .replace(/\\\\/g, '\\')
+            );
         } else {
             // Attempt 3: Salvage Strategy (Missing JSON structure)
             // If we find "options": [ ... ], assume everything before it is the narrative
@@ -204,10 +226,12 @@ function parseGameContent(content: string): ParsedGameResponse | null {
                     rawNarrative = rawNarrative.replace(/^\{\s*/, '');
                 }
 
-                narrative = rawNarrative
+                narrative = normalizeNarrativeText(
+                    rawNarrative
                     .replace(/\\n/g, '\n')
                     .replace(/\\"/g, '"')
-                    .replace(/\\\\/g, '\\');
+                    .replace(/\\\\/g, '\\')
+                );
             }
         }
 
@@ -430,12 +454,13 @@ export function MessageHistory({
     onActionSelect,
     sessionId,
     canSelectActions = true,
+    autoScrollBehavior = 'auto',
 }: MessageHistoryProps) {
     const bottomRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+        bottomRef.current?.scrollIntoView({ behavior: autoScrollBehavior });
+    }, [messages, autoScrollBehavior]);
 
     return (
         <div className="flex-1 overflow-y-auto p-4 space-y-6 font-pixel text-sm scrollbar-hide">
