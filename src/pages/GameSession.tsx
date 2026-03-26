@@ -116,6 +116,44 @@ function applyHpChange(
     };
 }
 
+function DynamicSceneImage({
+    imageUrl,
+    alt,
+    className,
+}: {
+    imageUrl: string;
+    alt: string;
+    className?: string;
+}) {
+    const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
+
+    return (
+        <div
+            className={className}
+            style={
+                imageAspectRatio
+                    ? { aspectRatio: `${imageAspectRatio}` }
+                    : undefined
+            }
+        >
+            <img
+                src={imageUrl}
+                alt={alt}
+                className="w-full h-full object-contain pixelated opacity-80 group-hover:opacity-100 transition-opacity duration-700"
+                style={{ imageRendering: 'pixelated' }}
+                onLoad={(event) => {
+                    const { naturalWidth, naturalHeight } = event.currentTarget;
+                    if (naturalWidth > 0 && naturalHeight > 0) {
+                        setImageAspectRatio(naturalWidth / naturalHeight);
+                    }
+                }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-sanabi-bg via-transparent to-transparent pointer-events-none" />
+            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none" />
+        </div>
+    );
+}
+
 export default function GameSession() {
     const { characterId } = useParams<{ characterId: string }>();
     const navigate = useNavigate();
@@ -517,29 +555,20 @@ export default function GameSession() {
                                     <>
                                         <div className="flex-1 flex flex-col relative overflow-hidden bg-sanabi-bg/80 min-h-0">
                                             {imageUrl && (
-                                                <div className="w-full h-32 md:h-64 shrink-0 bg-black border-b border-sanabi-cyan/30 flex items-center justify-center overflow-hidden hidden md:flex relative group">
-                                                    <img
-                                                        src={imageUrl}
-                                                        alt="Current Scene"
-                                                        className="w-full h-full object-cover pixelated opacity-80 group-hover:opacity-100 transition-opacity duration-700"
-                                                        style={{ imageRendering: 'pixelated' }}
-                                                    />
-                                                    <div className="absolute inset-0 bg-gradient-to-t from-sanabi-bg via-transparent to-transparent pointer-events-none" />
-                                                    <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none" />
-                                                </div>
+                                                <DynamicSceneImage
+                                                    imageUrl={imageUrl}
+                                                    alt="Current Scene"
+                                                    className="w-full shrink-0 bg-black border-b border-sanabi-cyan/30 hidden md:flex relative group"
+                                                />
                                             )}
 
                                             {/* Mobile-only Image (Smaller) */}
                                             {imageUrl && (
-                                                <div className="w-full h-24 shrink-0 bg-black border-b border-sanabi-cyan/30 flex items-center justify-center overflow-hidden md:hidden relative">
-                                                    <img
-                                                        src={imageUrl}
-                                                        alt="Current Scene"
-                                                        className="w-full h-full object-cover pixelated opacity-80"
-                                                        style={{ imageRendering: 'pixelated' }}
-                                                    />
-                                                    <div className="absolute inset-0 bg-gradient-to-t from-sanabi-bg via-transparent to-transparent pointer-events-none" />
-                                                </div>
+                                                <DynamicSceneImage
+                                                    imageUrl={imageUrl}
+                                                    alt="Current Scene"
+                                                    className="w-full shrink-0 bg-black border-b border-sanabi-cyan/30 md:hidden relative group"
+                                                />
                                             )}
 
                                             <div className="flex-1 overflow-hidden relative flex flex-col min-h-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-opacity-5">

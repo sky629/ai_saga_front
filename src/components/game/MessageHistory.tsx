@@ -378,6 +378,7 @@ function IllustrationSection({
     initialImageUrl?: string | null;
 }) {
     const [imageUrl, setImageUrl] = useState<string | null>(initialImageUrl ?? null);
+    const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -400,16 +401,30 @@ function IllustrationSection({
 
     if (imageUrl) {
         return (
-            <div className="mt-3 relative overflow-hidden rounded-sm border border-sanabi-pink/20 group">
+            <div
+                className="mt-3 relative overflow-hidden rounded-sm border border-sanabi-pink/20 group bg-black/70"
+                style={
+                    imageAspectRatio
+                        ? { aspectRatio: `${imageAspectRatio}` }
+                        : undefined
+                }
+            >
                 <img
                     src={imageUrl}
                     alt="Scene Illustration"
-                    className="w-full object-cover opacity-90 group-hover:opacity-100 transition-opacity duration-500"
-                    style={{ imageRendering: 'pixelated', maxHeight: '320px' }}
+                    className="w-full h-full object-contain opacity-90 group-hover:opacity-100 transition-opacity duration-500"
+                    style={{ imageRendering: 'pixelated' }}
+                    onLoad={(event) => {
+                        const { naturalWidth, naturalHeight } = event.currentTarget;
+                        if (naturalWidth > 0 && naturalHeight > 0) {
+                            setImageAspectRatio(naturalWidth / naturalHeight);
+                        }
+                    }}
                     onError={() => {
                         console.error("ILLUST_LOAD_FAILED:", imageUrl);
                         setError("IMAGE_LOAD_ERR: 이미지를 불러올 수 없습니다. URL 설정을 확인하세요.");
                         setImageUrl(null);
+                        setImageAspectRatio(null);
                     }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
