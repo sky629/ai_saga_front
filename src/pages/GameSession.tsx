@@ -34,6 +34,7 @@ interface PendingNarrativeState {
     xpMsg: GameMessageResponse | null;
     lvMsg: GameMessageResponse | null;
     beforeMessageId?: string;
+    diceResult?: DiceResult | null;
     hpChange: number;
     shouldRefresh: boolean;
     shouldInvalidateSession: boolean;
@@ -163,6 +164,7 @@ export default function GameSession() {
     // State
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [localMessages, setLocalMessages] = useState<(GameMessageResponse | MessageHistoryResponse)[]>([]);
+    const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
     const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [isCheckingSession, setIsCheckingSession] = useState(true);
     const [actionInput, setActionInput] = useState('');
@@ -178,6 +180,7 @@ export default function GameSession() {
     const [scenarios, setScenarios] = useState<ScenarioResponse[]>([]);
     const [showScenarioSelect, setShowScenarioSelect] = useState(false);
     const [scenarioStartError, setScenarioStartError] = useState<string | null>(null);
+    const [shouldAnimateInitialSystemMessage, setShouldAnimateInitialSystemMessage] = useState(false);
 
     // 1. Fetch Character Info
     const { data: characters, isLoading: isLoadingChar } = useQuery({
@@ -254,6 +257,7 @@ export default function GameSession() {
             const newSession = await gameService.startGame(characterId, scenarioId);
             setSessionId(newSession.id);
             setIsSessionEnded(false);
+            setShouldAnimateInitialSystemMessage(true);
             if (newSession.image_url) {
                 setImageUrl(newSession.image_url);
             }
@@ -303,13 +307,19 @@ export default function GameSession() {
 
     // Sync initial messages
     useEffect(() => {
-        if (diceResult && pendingNarrative) {
-            return;
-        }
         if (messageHistory?.items) {
-            setLocalMessages([...messageHistory.items].reverse());
+            const nextMessages = [...messageHistory.items].reverse();
+            setLocalMessages(nextMessages);
+
+            if (shouldAnimateInitialSystemMessage && nextMessages.length > 0) {
+                const latestSystemMessage = [...nextMessages]
+                    .reverse()
+                    .find((message) => message.role !== 'user');
+                setTypingMessageId(latestSystemMessage?.id ?? null);
+                setShouldAnimateInitialSystemMessage(false);
+            }
         }
-    }, [messageHistory]);
+    }, [messageHistory, shouldAnimateInitialSystemMessage]);
 
     // 4. Action Mutation
     const sendActionMutation = useMutation({
@@ -356,6 +366,7 @@ export default function GameSession() {
                     });
                 }
                 setLocalMessages(prev => [...prev, ...endingUpdates]);
+                setTypingMessageId(endingMessage.id);
                 if (data.xp_gained > 0) {
                     refreshUser();
                 }
@@ -392,7 +403,7 @@ export default function GameSession() {
 
             // Handle delayed reveal if dice is involved
             if (data.dice_result) {
-                // Show before_roll_narrative immediately (pre-dice tension)
+                // Type before-roll narrative first, then reveal the dice panel.
                 let beforeMessageId: string | undefined;
                 if (data.before_roll_narrative) {
                     beforeMessageId = `before-${Date.now()}`;
@@ -403,15 +414,18 @@ export default function GameSession() {
                         created_at: new Date().toISOString()
                     };
                     setLocalMessages(prev => [...prev, beforeMsg]);
+                    setTypingMessageId(beforeMessageId);
+                } else {
+                    setDiceResult(data.dice_result);
+                    setDicePanelHpChange(hpChange);
+                    setDiceSequence(prev => prev + 1);
                 }
-                setDiceResult(data.dice_result);
-                setDicePanelHpChange(hpChange);
-                setDiceSequence(prev => prev + 1);
                 setPendingNarrative({
                     systemMsg,
                     xpMsg,
                     lvMsg,
                     beforeMessageId,
+                    diceResult: data.dice_result,
                     hpChange,
                     shouldRefresh: !!data.xp_gained,
                     shouldInvalidateSession: true,
@@ -422,6 +436,7 @@ export default function GameSession() {
                 if (xpMsg) updates.push(xpMsg);
                 if (lvMsg) updates.push(lvMsg);
                 setLocalMessages(prev => [...prev, ...updates]);
+                setTypingMessageId(systemMsg.id);
                 if (data.xp_gained) refreshUser();
                 queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
                 queryClient.invalidateQueries({ queryKey: ['characters'] });
@@ -480,7 +495,6 @@ export default function GameSession() {
                 systemMsg,
                 xpMsg,
                 lvMsg,
-                beforeMessageId,
                 shouldRefresh,
                 shouldInvalidateSession,
             } = pendingNarrative;
@@ -488,18 +502,31 @@ export default function GameSession() {
             if (xpMsg) updates.push(xpMsg);
             if (lvMsg) updates.push(lvMsg);
             
-            setLocalMessages(prev => {
-                const baseMessages = beforeMessageId
-                    ? prev.filter((msg) => msg.id !== beforeMessageId)
-                    : prev;
-                return [...baseMessages, ...updates];
-            });
+            setLocalMessages(prev => [...prev, ...updates]);
+            setTypingMessageId(systemMsg.id);
             if (shouldRefresh) refreshUser();
             if (shouldInvalidateSession) {
                 queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
                 queryClient.invalidateQueries({ queryKey: ['characters'] });
             }
             setPendingNarrative(null);
+        }
+    };
+
+    const handleTypingComplete = (messageId: string) => {
+        if (
+            pendingNarrative?.beforeMessageId === messageId &&
+            pendingNarrative.diceResult
+        ) {
+            setTypingMessageId(null);
+            setDiceResult(pendingNarrative.diceResult);
+            setDicePanelHpChange(pendingNarrative.hpChange);
+            setDiceSequence(prev => prev + 1);
+            return;
+        }
+
+        if (typingMessageId === messageId) {
+            setTypingMessageId(null);
         }
     };
 
@@ -583,6 +610,8 @@ export default function GameSession() {
                                                     <MessageHistory
                                                     messages={localMessages}
                                                     isLoading={!!sendActionMutation.isPending}
+                                                    typingMessageId={typingMessageId}
+                                                    onTypingComplete={handleTypingComplete}
                                                     canSelectActions={
                                                         !isSessionEnded &&
                                                         sessionData?.status !== 'completed'

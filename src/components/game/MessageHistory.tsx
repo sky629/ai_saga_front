@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type {
     GameActionOption,
@@ -20,6 +20,8 @@ interface MessageHistoryProps {
     sessionId?: string | null;
     canSelectActions?: boolean;
     autoScrollBehavior?: ScrollBehavior;
+    typingMessageId?: string | null;
+    onTypingComplete?: (messageId: string) => void;
 }
 
 const DICE_ACTION_TYPES: GameActionType[] = [
@@ -141,10 +143,7 @@ function normalizeParsedResponse(parsed: unknown): ParsedGameResponse | null {
 
     return {
         before_narrative: beforeNarrative,
-        narrative:
-            beforeNarrative && beforeNarrative !== narrative
-                ? `${beforeNarrative}\n\n${narrative}`
-                : narrative,
+        narrative,
         options: normalizeOptions(
             'options' in parsed ? parsed.options : []
         ),
@@ -367,6 +366,114 @@ function StateChangeIndicator({ changes }: { changes: StateChanges }) {
     );
 }
 
+function NarrativeMarkdown({ narrative }: { narrative: string }) {
+    return (
+        <ReactMarkdown
+            components={{
+                p: ({ ...props }) => (
+                    <p
+                        style={{
+                            marginBottom: '1.5rem',
+                            lineHeight: '2.4rem',
+                            wordBreak: 'keep-all',
+                            fontSize: '16px',
+                            color: '#EFEFEF'
+                        }}
+                        {...props}
+                    />
+                ),
+                ul: ({ ...props }) => <ul className="list-disc pl-5 space-y-2 text-sanabi-cyan/80" style={{ marginBottom: '1.5rem' }} {...props} />,
+                ol: ({ ...props }) => <ol className="list-decimal pl-5 space-y-2 text-sanabi-cyan/80" style={{ marginBottom: '1.5rem' }} {...props} />,
+                li: ({ ...props }) => <li className="pl-1 text-gray-300" style={{ lineHeight: '2rem', fontSize: '15px' }} {...props} />,
+                strong: ({ ...props }) => <strong className="font-bold text-sanabi-green bg-sanabi-green/10 px-1 rounded-sm shadow-[0_0_5px_rgba(0,255,157,0.3)] mx-1" {...props} />,
+                em: ({ ...props }) => <em className="text-sanabi-pink not-italic font-medium mx-0.5" {...props} />,
+                code: ({ ...props }) => <code className="font-mono text-xs bg-black/50 px-1.5 py-0.5 rounded border border-sanabi-cyan/30 text-sanabi-cyan mx-1" {...props} />,
+            }}
+        >
+            {narrative}
+        </ReactMarkdown>
+    );
+}
+
+function TypewriterNarrative({
+    messageId,
+    narrative,
+    onComplete,
+}: {
+    messageId: string;
+    narrative: string;
+    onComplete?: (messageId: string) => void;
+}) {
+    const lines = useMemo(() => narrative.split('\n'), [narrative]);
+    const [lineIndex, setLineIndex] = useState(0);
+    const [charIndex, setCharIndex] = useState(0);
+
+    useEffect(() => {
+        setLineIndex(0);
+        setCharIndex(0);
+    }, [messageId, narrative]);
+
+    useEffect(() => {
+        if (lines.length === 0) {
+            onComplete?.(messageId);
+            return;
+        }
+
+        if (lineIndex >= lines.length) {
+            onComplete?.(messageId);
+            return;
+        }
+
+        const currentLine = lines[lineIndex] ?? '';
+        const isLineComplete = charIndex >= currentLine.length;
+
+        const timeout = window.setTimeout(() => {
+            if (isLineComplete) {
+                if (lineIndex === lines.length - 1) {
+                    setLineIndex(lines.length);
+                    onComplete?.(messageId);
+                    return;
+                }
+                setLineIndex((prev) => prev + 1);
+                setCharIndex(0);
+                return;
+            }
+
+            setCharIndex((prev) => prev + 1);
+        }, isLineComplete ? 220 : 22);
+
+        return () => window.clearTimeout(timeout);
+    }, [charIndex, lineIndex, lines, messageId, onComplete]);
+
+    const visibleText = useMemo(() => {
+        if (lines.length === 0) {
+            return '';
+        }
+
+        if (lineIndex >= lines.length) {
+            return narrative;
+        }
+
+        const completedLines = lines.slice(0, lineIndex);
+        const currentLine = lines[lineIndex] ?? '';
+        const partialLine = currentLine.slice(0, charIndex);
+        return [...completedLines, partialLine].join('\n');
+    }, [charIndex, lineIndex, lines, narrative]);
+
+    const isComplete = lineIndex >= lines.length;
+
+    return (
+        <div className="relative">
+            <NarrativeMarkdown narrative={visibleText} />
+            {!isComplete && (
+                <span className="absolute bottom-0 right-0 text-sanabi-cyan animate-pulse">
+                    ▌
+                </span>
+            )}
+        </div>
+    );
+}
+
 
 function IllustrationSection({
     messageId,
@@ -470,12 +577,33 @@ export function MessageHistory({
     sessionId,
     canSelectActions = true,
     autoScrollBehavior = 'auto',
+    typingMessageId = null,
+    onTypingComplete,
 }: MessageHistoryProps) {
     const bottomRef = useRef<HTMLDivElement>(null);
+    const [completedTypingIds, setCompletedTypingIds] = useState<string[]>([]);
 
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: autoScrollBehavior });
     }, [messages, autoScrollBehavior]);
+
+    useEffect(() => {
+        if (!typingMessageId) return;
+        setCompletedTypingIds((prev) =>
+            prev.filter((messageId) => messageId !== typingMessageId)
+        );
+    }, [typingMessageId]);
+
+    const handleTypingComplete = useCallback(
+        (messageId: string) => {
+            setCompletedTypingIds((prev) =>
+                prev.includes(messageId) ? prev : [...prev, messageId]
+            );
+            onTypingComplete?.(messageId);
+            bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+        },
+        [onTypingComplete]
+    );
 
     return (
         <div className="flex-1 overflow-y-auto p-4 space-y-6 font-pixel text-sm scrollbar-hide">
@@ -496,10 +624,27 @@ export function MessageHistory({
                     ? normalizeParsedResponse((msg as GameMessageResponse).parsed_response)
                         ?? parseGameContent(msg.content)
                     : null;
-                const narrative = parsed?.narrative || msg.content;
+                const previousMessage = index > 0 ? messages[index - 1] : null;
+                const hasSeparateBeforeNarrative =
+                    !!parsed?.before_narrative &&
+                    !!previousMessage &&
+                    previousMessage.role === 'system' &&
+                    normalizeNarrativeText(previousMessage.content) ===
+                        parsed.before_narrative;
+                const narrative = parsed
+                    ? hasSeparateBeforeNarrative
+                        ? parsed.narrative
+                        : parsed.before_narrative &&
+                            parsed.before_narrative !== parsed.narrative
+                          ? `${parsed.before_narrative}\n\n${parsed.narrative}`
+                          : parsed.narrative
+                    : msg.content;
                 const options = parsed?.options;
                 const stateChanges = parsed?.state_changes;
                 const msgImageUrl = (msg as GameMessageResponse).image_url;
+                const isTypingTarget = isSystem && typingMessageId === msg.id;
+                const isTypingComplete =
+                    !isTypingTarget || completedTypingIds.includes(msg.id);
 
                 return (
                     <div
@@ -534,37 +679,22 @@ export function MessageHistory({
                                 color: '#EFEFEF'
                             }}
                         >
-                            <ReactMarkdown
-                                components={{
-                                    p: ({ ...props }) => (
-                                        <p
-                                            style={{
-                                                marginBottom: '1.5rem',
-                                                lineHeight: '2.4rem',
-                                                wordBreak: 'keep-all',
-                                                fontSize: '16px',
-                                                color: '#EFEFEF'
-                                            }}
-                                            {...props}
-                                        />
-                                    ),
-                                    ul: ({ ...props }) => <ul className="list-disc pl-5 space-y-2 text-sanabi-cyan/80" style={{ marginBottom: '1.5rem' }} {...props} />,
-                                    ol: ({ ...props }) => <ol className="list-decimal pl-5 space-y-2 text-sanabi-cyan/80" style={{ marginBottom: '1.5rem' }} {...props} />,
-                                    li: ({ ...props }) => <li className="pl-1 text-gray-300" style={{ lineHeight: '2rem', fontSize: '15px' }} {...props} />,
-                                    strong: ({ ...props }) => <strong className="font-bold text-sanabi-green bg-sanabi-green/10 px-1 rounded-sm shadow-[0_0_5px_rgba(0,255,157,0.3)] mx-1" {...props} />,
-                                    em: ({ ...props }) => <em className="text-sanabi-pink not-italic font-medium mx-0.5" {...props} />,
-                                    code: ({ ...props }) => <code className="font-mono text-xs bg-black/50 px-1.5 py-0.5 rounded border border-sanabi-cyan/30 text-sanabi-cyan mx-1" {...props} />,
-                                }}
-                            >
-                                {narrative}
-                            </ReactMarkdown>
+                            {isTypingTarget ? (
+                                <TypewriterNarrative
+                                    messageId={msg.id}
+                                    narrative={narrative}
+                                    onComplete={handleTypingComplete}
+                                />
+                            ) : (
+                                <NarrativeMarkdown narrative={narrative} />
+                            )}
                         </div>
 
                         {/* State & Options (System Only) */}
                         {isSystem && (
                             <>
                                 {/* 일러스트 섹션 - 네러티브 바로 아래 표시 */}
-                                {sessionId && (
+                                {sessionId && isTypingComplete && (
                                     <IllustrationSection
                                         messageId={msg.id}
                                         sessionId={sessionId}
@@ -572,8 +702,10 @@ export function MessageHistory({
                                     />
                                 )}
 
-                                {stateChanges && <StateChangeIndicator changes={stateChanges} />}
-                                {shouldShowOptions && options && options.length > 0 && (
+                                {isTypingComplete && stateChanges && (
+                                    <StateChangeIndicator changes={stateChanges} />
+                                )}
+                                {isTypingComplete && shouldShowOptions && options && options.length > 0 && (
                                     <div className="mt-4 pt-3 border-t border-sanabi-cyan/20">
                                         <span className="text-xs font-bold text-sanabi-cyan mb-2 block uppercase tracking-wide opacity-80 animate-pulse">Available Actions:</span>
                                         <div className="flex flex-col gap-2">
