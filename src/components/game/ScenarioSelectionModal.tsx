@@ -3,6 +3,11 @@ import { PixelButton } from '../layout/PixelButton';
 import type { ScenarioResponse } from '../../types/api';
 import { Play, Database, Scroll, Skull } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import {
+    getGameTypeBadgeClass,
+    getGameTypeLabel,
+    getScenarioTimeLabel,
+} from '../../utils/gameType';
 
 interface ScenarioSelectionModalProps {
     scenarios: ScenarioResponse[];
@@ -109,9 +114,23 @@ export function ScenarioSelectionModal({
                                                 {scenario.name}
                                             </h3>
                                         </div>
-                                        <span className="text-[10px] bg-sanabi-pink/10 text-sanabi-pink px-2 py-1 rounded-sm border border-sanabi-pink/30 font-bold uppercase tracking-wider">
-                                            {scenario.genre}
-                                        </span>
+                                        <div className="flex flex-col items-end gap-2">
+                                            <span
+                                                className={cn(
+                                                    'rounded-sm border px-2 py-1 text-[10px] font-bold uppercase tracking-wider',
+                                                    getGameTypeBadgeClass(
+                                                        scenario.game_type
+                                                    )
+                                                )}
+                                            >
+                                                {getGameTypeLabel(
+                                                    scenario.game_type
+                                                )}
+                                            </span>
+                                            <span className="text-[10px] bg-sanabi-pink/10 text-sanabi-pink px-2 py-1 rounded-sm border border-sanabi-pink/30 font-bold uppercase tracking-wider">
+                                                {scenario.genre}
+                                            </span>
+                                        </div>
                                     </div>
 
                                     <p className="text-sm text-gray-500 leading-relaxed line-clamp-3 border-l border-sanabi-cyan/20 pl-3">
@@ -135,8 +154,18 @@ export function ScenarioSelectionModal({
                                                 </span>
                                             </span>
                                             <span className="flex items-center gap-1">
-                                                <span className="opacity-50">TURNS:</span>
-                                                <span className="text-sanabi-cyan">{scenario.max_turns}</span>
+                                                <span className="opacity-50">
+                                                    {scenario.game_type ===
+                                                    'progression'
+                                                        ? 'MONTHS:'
+                                                        : 'TURNS:'}
+                                                </span>
+                                                <span className="text-sanabi-cyan">
+                                                    {scenario.max_turns}
+                                                    {getScenarioTimeLabel(
+                                                        scenario.game_type
+                                                    )}
+                                                </span>
                                             </span>
                                         </div>
                                         <div className="group-hover:translate-x-1 transition-transform text-sanabi-cyan bg-sanabi-cyan/10 rounded-sm p-1 border border-sanabi-cyan/30">

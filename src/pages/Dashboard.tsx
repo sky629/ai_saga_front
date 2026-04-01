@@ -16,6 +16,12 @@ import { CreateCharacterModal } from '../components/game/CreateCharacterModal';
 import { gameService } from '../services/gameService';
 import type { ScenarioResponse } from '../types/api';
 import { cn } from '../utils/cn';
+import {
+    getGameTypeBadgeClass,
+    getGameTypeDescription,
+    getGameTypeLabel,
+    getScenarioTimeLabel,
+} from '../utils/gameType';
 
 const DIFFICULTY_LABELS: Record<string, string> = {
     easy: '쉬움',
@@ -37,6 +43,9 @@ function ScenarioCard({
     const [isWorldExpanded, setIsWorldExpanded] = useState(false);
     const thumbnailUrl =
         scenario.thumbnail_url || DEFAULT_SCENARIO_THUMBNAIL_URL;
+    const gameTypeLabel = getGameTypeLabel(scenario.game_type);
+    const gameTypeDescription = getGameTypeDescription(scenario.game_type);
+    const timeLabel = getScenarioTimeLabel(scenario.game_type);
 
     return (
         <div
@@ -66,6 +75,14 @@ function ScenarioCard({
                 <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(3,5,12,0.88),rgba(3,5,12,0.14)_55%,rgba(3,5,12,0.05))]" />
                 <div className="absolute left-0 right-0 top-0 flex items-start justify-between p-5">
                     <div className="flex flex-wrap gap-2 max-w-[72%]">
+                        <span
+                            className={cn(
+                                'rounded-sm border px-2.5 py-1 text-[11px] backdrop-blur-sm',
+                                getGameTypeBadgeClass(scenario.game_type)
+                            )}
+                        >
+                            {gameTypeLabel}
+                        </span>
                         {scenario.tags.slice(0, 4).map((tag) => (
                             <span
                                 key={tag}
@@ -100,12 +117,30 @@ function ScenarioCard({
             <div className="relative z-10 p-6 space-y-5">
                 <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-sm border border-white/10 bg-black/30 px-3 py-1.5 text-[11px] text-gray-300">
-                        최대 {scenario.max_turns}턴
+                        최대 {scenario.max_turns}
+                        {timeLabel}
                     </span>
                     <span className="inline-flex items-center gap-2 rounded-sm border border-white/10 bg-black/30 px-3 py-1.5 text-[11px] text-gray-300">
                         <MapPinned size={12} className="text-sanabi-cyan/70" />
                         {scenario.initial_location || '시작 지점 미정'}
                     </span>
+                </div>
+
+                <div className="rounded-sm border border-white/5 bg-black/25 p-4">
+                    <div className="text-[11px] uppercase tracking-[0.2em] text-sanabi-cyan/70">
+                        게임 타입
+                    </div>
+                    <p className="mt-2 text-sm leading-7 text-gray-300">
+                        <span
+                            className={cn(
+                                'mr-2 inline-flex rounded-sm border px-2 py-1 text-[11px] font-semibold',
+                                getGameTypeBadgeClass(scenario.game_type)
+                            )}
+                        >
+                            {gameTypeLabel}
+                        </span>
+                        {gameTypeDescription}
+                    </p>
                 </div>
 
                 <p className="max-w-4xl text-base leading-8 text-gray-300">

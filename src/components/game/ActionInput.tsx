@@ -7,9 +7,19 @@ interface ActionInputProps {
     value: string;
     onChange: (value: string) => void;
     error?: string | null;
+    modeHint?: string | null;
+    placeholder?: string;
 }
 
-export function ActionInput({ onSend, disabled, value, onChange, error }: ActionInputProps) {
+export function ActionInput({
+    onSend,
+    disabled,
+    value,
+    onChange,
+    error,
+    modeHint,
+    placeholder,
+}: ActionInputProps) {
     const inputRef = useRef<HTMLInputElement>(null);
 
     // Keep focus on input unless user explicitly clicks away
@@ -33,6 +43,12 @@ export function ActionInput({ onSend, disabled, value, onChange, error }: Action
                     System_Error: {error}
                 </div>
             )}
+            {modeHint && !error && (
+                <div className="px-4 py-1.5 bg-black/30 border-t border-sanabi-cyan/20 text-[10px] tracking-[0.12em] text-sanabi-cyan/80 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-sanabi-cyan rounded-full shadow-[0_0_5px_rgba(0,240,255,0.4)]"></span>
+                    {modeHint}
+                </div>
+            )}
         <form
             onSubmit={handleSubmit}
             className="flex gap-3 items-center p-3 bg-sanabi-panel border-t border-sanabi-cyan/20"
@@ -49,7 +65,11 @@ export function ActionInput({ onSend, disabled, value, onChange, error }: Action
                     onChange={(e) => onChange(e.target.value)}
                     disabled={disabled}
                     className="w-full bg-black/50 border border-sanabi-cyan/30 rounded-sm px-3 py-2 text-gray-200 placeholder:text-gray-600 outline-none focus:border-sanabi-cyan focus:shadow-[0_0_10px_rgba(0,240,255,0.2)] transition-all font-pixel text-base"
-                    placeholder={disabled ? "AWAITING_SYSTEM_RESPONSE..." : "Enter command..."}
+                    placeholder={
+                        disabled
+                            ? 'AWAITING_SYSTEM_RESPONSE...'
+                            : placeholder || 'Enter command...'
+                    }
                     autoFocus
                     autoComplete="off"
                 />

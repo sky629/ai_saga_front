@@ -1,5 +1,19 @@
-import { Package, MapPin, Users, Sparkles, Clock, Skull } from 'lucide-react';
-import type { GameState } from '../../types/api';
+import {
+    Clock,
+    MapPin,
+    Package,
+    ScrollText,
+    Skull,
+    Sparkles,
+    Swords,
+    Users,
+} from 'lucide-react';
+import type {
+    GameState,
+    ProgressionAchievementBoard,
+    ProgressionStatusPanel,
+    ScenarioGameType,
+} from '../../types/api';
 
 interface GameStatePanelProps {
     gameState: GameState;
@@ -7,6 +21,149 @@ interface GameStatePanelProps {
     turnCount: number;
     maxTurns: number;
     status?: string;
+    gameType?: ScenarioGameType;
+    progressionStatus?: ProgressionStatusPanel | null;
+    achievementBoard?: ProgressionAchievementBoard | null;
+}
+
+function ProgressionPanel({
+    gameState,
+    currentLocation,
+    turnCount,
+    maxTurns,
+    status,
+    progressionStatus,
+    achievementBoard,
+}: {
+    gameState: GameState;
+    currentLocation: string;
+    turnCount: number;
+    maxTurns: number;
+    status?: string;
+    progressionStatus?: ProgressionStatusPanel | null;
+    achievementBoard?: ProgressionAchievementBoard | null;
+}) {
+    const statusPanel = progressionStatus;
+    const monthsLeft = statusPanel?.remaining_turns ?? Math.max(0, maxTurns - turnCount);
+    const isCompleted = status === 'completed' || turnCount >= maxTurns;
+    const manuals =
+        statusPanel?.manuals && statusPanel.manuals.length > 0
+            ? statusPanel.manuals
+            : gameState.manuals ?? [];
+
+    return (
+        <div className="flex h-full w-full flex-col gap-5 overflow-y-auto bg-sanabi-bg/50 p-4 text-sm">
+            <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-sanabi-gold/80">
+                    <Clock size={12} />
+                    <span>Month Cycle</span>
+                </div>
+                <div className="ml-5">
+                    <div className="font-pixel text-lg font-bold text-sanabi-gold drop-shadow-[0_0_5px_rgba(255,203,92,0.4)]">
+                        {turnCount}개월 차
+                        <span className="ml-2 text-sm text-gray-500">/ {maxTurns}개월</span>
+                    </div>
+                    <div className="mt-1 text-xs font-bold text-gray-400">
+                        남은 시간 {monthsLeft}개월
+                    </div>
+                    <div className="mt-1 text-xs text-sanabi-cyan/80">
+                        {statusPanel?.escape_status || '기운을 가다듬는 중입니다.'}
+                    </div>
+                    {isCompleted && (
+                        <div className="mt-1 flex items-center gap-1 text-xs font-bold text-sanabi-pink">
+                            <Skull size={12} /> 수련 종료
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-sanabi-cyan/70">
+                    <MapPin size={12} />
+                    <span>Cultivation Ground</span>
+                </div>
+                <div className="border-l-2 border-sanabi-gold pl-2 text-sm font-bold text-gray-300 ml-5">
+                    {currentLocation || '수련 장소 미확정'}
+                </div>
+            </div>
+
+            {statusPanel && (
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="rounded-sm border border-sanabi-cyan/20 bg-black/40 p-3">
+                        <div className="flex items-center gap-2 uppercase tracking-wide text-sanabi-cyan/70">
+                            <Sparkles size={12} />
+                            내공
+                        </div>
+                        <div className="mt-2 text-xl font-bold text-sanabi-cyan">
+                            {statusPanel.internal_power}
+                        </div>
+                    </div>
+                    <div className="rounded-sm border border-sanabi-gold/20 bg-black/40 p-3">
+                        <div className="flex items-center gap-2 uppercase tracking-wide text-sanabi-gold/70">
+                            <Swords size={12} />
+                            외공
+                        </div>
+                        <div className="mt-2 text-xl font-bold text-sanabi-gold">
+                            {statusPanel.external_power}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-sanabi-cyan/70">
+                    <ScrollText size={12} />
+                    <span>연마 중인 비급</span>
+                </div>
+                <div className="ml-5 min-h-[80px] rounded-sm border border-sanabi-cyan/20 bg-black/40 p-3">
+                    {manuals.length > 0 ? (
+                        <ul className="space-y-2 text-xs text-gray-300">
+                            {manuals.map((manual) => (
+                                <li
+                                    key={manual.name}
+                                    className="rounded-sm border border-white/5 bg-black/30 p-2"
+                                >
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="font-bold text-sanabi-gold">
+                                            {manual.name}
+                                        </span>
+                                        <span className="text-[10px] uppercase text-gray-500">
+                                            {manual.category}
+                                        </span>
+                                    </div>
+                                    <div className="mt-1 text-gray-400">
+                                        숙련도 {manual.mastery}%
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <div className="py-3 text-center text-xs italic text-gray-600">
+                            아직 손에 들어온 비급이 없습니다.
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {achievementBoard && (
+                <div className="space-y-3 rounded-sm border border-sanabi-pink/30 bg-black/40 p-4">
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-sanabi-pink">
+                        <Sparkles size={12} />
+                        업적 보드
+                    </div>
+                    <div className="text-lg font-bold text-white">
+                        {achievementBoard.title}
+                    </div>
+                    <div className="text-xs leading-6 text-gray-300">
+                        {achievementBoard.summary}
+                    </div>
+                    <div className="text-[11px] uppercase tracking-wide text-gray-500">
+                        총 전력 {achievementBoard.total_score}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }
 
 export function GameStatePanel({
@@ -14,14 +171,31 @@ export function GameStatePanel({
     currentLocation,
     turnCount,
     maxTurns,
-    status
+    status,
+    gameType = 'trpg',
+    progressionStatus,
+    achievementBoard,
 }: GameStatePanelProps) {
+    if (gameType === 'progression') {
+        return (
+            <ProgressionPanel
+                gameState={gameState}
+                currentLocation={currentLocation}
+                turnCount={turnCount}
+                maxTurns={maxTurns}
+                status={status}
+                progressionStatus={progressionStatus}
+                achievementBoard={achievementBoard}
+            />
+        );
+    }
+
     const isNearingEnd = turnCount >= maxTurns * 0.8;
     const isLastAction = turnCount === maxTurns - 1 && status !== 'completed';
     const isCompleted = status === 'completed' || turnCount >= maxTurns;
+
     return (
         <div className="w-full h-full bg-sanabi-bg/50 p-4 flex flex-col gap-5 text-sm overflow-y-auto">
-            {/* 턴 카운터 */}
             <div className="space-y-1">
                 <div className="flex items-center gap-2 text-sanabi-cyan/70 font-bold text-xs uppercase tracking-wide">
                     <Clock size={12} />
@@ -29,7 +203,8 @@ export function GameStatePanel({
                 </div>
                 <div className="ml-5">
                     <div className="text-sanabi-cyan font-pixel text-lg font-bold drop-shadow-[0_0_5px_rgba(0,240,255,0.5)]">
-                        TURN {turnCount} <span className="text-gray-500 text-sm">/ {maxTurns}</span>
+                        TURN {turnCount}{' '}
+                        <span className="text-gray-500 text-sm">/ {maxTurns}</span>
                     </div>
                     {isCompleted && (
                         <div className="text-sanabi-pink text-xs mt-1 font-bold flex items-center gap-1">
@@ -49,7 +224,6 @@ export function GameStatePanel({
                 </div>
             </div>
 
-            {/* 현재 위치 */}
             <div className="space-y-1">
                 <div className="flex items-center gap-2 text-sanabi-cyan/70 font-bold text-xs uppercase tracking-wide">
                     <MapPin size={12} />
@@ -60,7 +234,6 @@ export function GameStatePanel({
                 </div>
             </div>
 
-            {/* 인벤토리 */}
             <div className="space-y-1">
                 <div className="flex items-center gap-2 text-sanabi-cyan/70 font-bold text-xs uppercase tracking-wide">
                     <Package size={12} />
@@ -84,7 +257,6 @@ export function GameStatePanel({
                 </div>
             </div>
 
-            {/* 만난 NPC */}
             {gameState.met_npcs && gameState.met_npcs.length > 0 && (
                 <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sanabi-cyan/70 font-bold text-xs uppercase tracking-wide">
@@ -104,7 +276,6 @@ export function GameStatePanel({
                 </div>
             )}
 
-            {/* 발견한 것 */}
             {gameState.discoveries && gameState.discoveries.length > 0 && (
                 <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sanabi-cyan/70 font-bold text-xs uppercase tracking-wide">
@@ -124,7 +295,6 @@ export function GameStatePanel({
                 </div>
             )}
 
-            {/* 방문한 장소 (최근 5개 표시) */}
             {gameState.visited_locations && gameState.visited_locations.length > 0 && (
                 <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sanabi-cyan/70 font-bold text-xs uppercase tracking-wide">

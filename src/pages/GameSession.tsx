@@ -17,13 +17,17 @@ import type {
     CharacterResponse,
     GameMessageResponse,
     MessageHistoryResponse,
-    ScenarioResponse,
     DiceResult,
     GameActionOption,
     GameActionType,
     GameActionResponse,
     GameTurnResponse,
+    ProgressionManual,
+    ProgressionAchievementBoard,
+    ProgressionStatusPanel,
+    StateChanges,
 } from '../types/api';
+import { getScenarioTimeLabel } from '../utils/gameType';
 
 function isGameActionResponse(data: GameTurnResponse): data is GameActionResponse {
     return 'message' in data;
@@ -66,6 +70,35 @@ function getRetryAfterSeconds(error: unknown): number | undefined {
     }
 
     return undefined;
+}
+
+function extractApiErrorMessage(error: unknown): string | null {
+    if (!axios.isAxiosError(error)) {
+        return null;
+    }
+
+    const payload = error.response?.data;
+    if (!payload || typeof payload !== 'object') {
+        return null;
+    }
+
+    if (
+        'detail' in payload &&
+        typeof payload.detail === 'string' &&
+        payload.detail.trim()
+    ) {
+        return payload.detail.trim();
+    }
+
+    if (
+        'message' in payload &&
+        typeof payload.message === 'string' &&
+        payload.message.trim()
+    ) {
+        return payload.message.trim();
+    }
+
+    return null;
 }
 
 function extractHpChange(data: GameActionResponse): number {
@@ -117,42 +150,136 @@ function applyHpChange(
     };
 }
 
-function DynamicSceneImage({
-    imageUrl,
-    alt,
-    className,
-}: {
-    imageUrl: string;
-    alt: string;
-    className?: string;
-}) {
-    const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
+function extractProgressionStateChanges(
+    data: GameActionResponse
+): StateChanges | null {
+    if (data.state_changes) {
+        return data.state_changes;
+    }
 
-    return (
-        <div
-            className={className}
-            style={
-                imageAspectRatio
-                    ? { aspectRatio: `${imageAspectRatio}` }
-                    : undefined
-            }
-        >
-            <img
-                src={imageUrl}
-                alt={alt}
-                className="w-full h-full object-contain pixelated opacity-80 group-hover:opacity-100 transition-opacity duration-700"
-                style={{ imageRendering: 'pixelated' }}
-                onLoad={(event) => {
-                    const { naturalWidth, naturalHeight } = event.currentTarget;
-                    if (naturalWidth > 0 && naturalHeight > 0) {
-                        setImageAspectRatio(naturalWidth / naturalHeight);
-                    }
-                }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-sanabi-bg via-transparent to-transparent pointer-events-none" />
-            <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none" />
-        </div>
+    const parsedResponse = data.message.parsed_response;
+    if (
+        typeof parsedResponse !== 'object' ||
+        parsedResponse === null ||
+        !('state_changes' in parsedResponse)
+    ) {
+        return null;
+    }
+
+    const stateChanges = parsedResponse.state_changes;
+    if (typeof stateChanges !== 'object' || stateChanges === null) {
+        return null;
+    }
+
+    return stateChanges as StateChanges;
+}
+
+function mergeProgressionManuals(
+    manuals: ProgressionManual[],
+    changes: StateChanges | null
+): ProgressionManual[] {
+    const byName = new Map(
+        manuals
+            .filter((manual) => manual.name.trim())
+            .map((manual) => [manual.name, { ...manual }])
     );
+
+    for (const manual of changes?.manuals_gained || []) {
+        if (!manual.name.trim()) continue;
+        byName.set(manual.name, {
+            ...manual,
+            mastery: typeof manual.mastery === 'number' ? manual.mastery : 0,
+        });
+    }
+
+    for (const update of changes?.manual_mastery_updates || []) {
+        if (
+            typeof update.mastery_delta !== 'number' ||
+            update.mastery_delta <= 0
+        ) {
+            continue;
+        }
+        const existing = byName.get(update.name);
+        if (!existing) continue;
+        byName.set(update.name, {
+            ...existing,
+            mastery: Math.max(
+                0,
+                Math.min(
+                    100,
+                    existing.mastery +
+                        update.mastery_delta
+                )
+            ),
+        });
+    }
+
+    return [...byName.values()];
+}
+
+function buildLocalProgressionStatus(
+    current: ProgressionStatusPanel | null,
+    data: GameActionResponse,
+    changes: StateChanges | null
+): ProgressionStatusPanel | null {
+    const base =
+        (data.status_panel &&
+        (data.status_panel.manuals.length > 0 || !current)
+            ? data.status_panel
+            : current || data.status_panel);
+    if (!base) {
+        return null;
+    }
+
+    const manuals = mergeProgressionManuals(base.manuals || [], changes);
+    return {
+        ...base,
+        manuals,
+        elapsed_turns: data.turn_count,
+        remaining_turns:
+            typeof base.remaining_turns === 'number'
+                ? base.remaining_turns
+                : Math.max(0, data.max_turns - data.turn_count),
+    };
+}
+
+function buildProgressionStatusFromSession(
+    sessionData: {
+        game_state: {
+            hp?: number;
+            max_hp?: number;
+            internal_power?: number;
+            external_power?: number;
+            manuals?: ProgressionManual[];
+            remaining_turns?: number;
+        };
+        turn_count: number;
+        max_turns: number;
+    },
+    fallbackEscapeStatus?: string
+): ProgressionStatusPanel | null {
+    if (
+        typeof sessionData.game_state.internal_power !== 'number' ||
+        typeof sessionData.game_state.external_power !== 'number' ||
+        typeof sessionData.game_state.hp !== 'number' ||
+        typeof sessionData.game_state.max_hp !== 'number'
+    ) {
+        return null;
+    }
+
+    return {
+        hp: sessionData.game_state.hp,
+        max_hp: sessionData.game_state.max_hp,
+        internal_power: sessionData.game_state.internal_power,
+        external_power: sessionData.game_state.external_power,
+        manuals: sessionData.game_state.manuals || [],
+        remaining_turns:
+            sessionData.game_state.remaining_turns ??
+            Math.max(0, sessionData.max_turns - sessionData.turn_count),
+        elapsed_turns: sessionData.turn_count,
+        escape_status:
+            fallbackEscapeStatus || '현재 수련 경지를 가늠하는 중입니다.',
+    };
 }
 
 export default function GameSession() {
@@ -165,7 +292,6 @@ export default function GameSession() {
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [localMessages, setLocalMessages] = useState<(GameMessageResponse | MessageHistoryResponse)[]>([]);
     const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
-    const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [isCheckingSession, setIsCheckingSession] = useState(true);
     const [actionInput, setActionInput] = useState('');
     const [selectedActionType, setSelectedActionType] = useState<GameActionType | null>(null);
@@ -176,8 +302,11 @@ export default function GameSession() {
     const [diceSequence, setDiceSequence] = useState(0);
     const [actionError, setActionError] = useState<string | null>(null);
     const [isSessionEnded, setIsSessionEnded] = useState(false);
+    const [progressionStatus, setProgressionStatus] =
+        useState<ProgressionStatusPanel | null>(null);
+    const [achievementBoard, setAchievementBoard] =
+        useState<ProgressionAchievementBoard | null>(null);
 
-    const [scenarios, setScenarios] = useState<ScenarioResponse[]>([]);
     const [showScenarioSelect, setShowScenarioSelect] = useState(false);
     const [scenarioStartError, setScenarioStartError] = useState<string | null>(null);
     const [shouldAnimateInitialSystemMessage, setShouldAnimateInitialSystemMessage] = useState(false);
@@ -188,6 +317,11 @@ export default function GameSession() {
         queryFn: gameService.getCharacters
     });
     const character = characters?.find(c => c.id === characterId);
+    const { data: scenarios = [] } = useQuery({
+        queryKey: ['scenarios'],
+        queryFn: gameService.getScenarios,
+        enabled: !!character,
+    });
     const [localCharacter, setLocalCharacter] =
         useState<CharacterResponse | null>(null);
 
@@ -214,6 +348,33 @@ export default function GameSession() {
         }
     }, [sessionData?.status]);
 
+    useEffect(() => {
+        if (sessionData?.game_state) {
+            setProgressionStatus((current) => {
+                return (
+                    buildProgressionStatusFromSession(
+                        sessionData,
+                        current?.escape_status
+                    ) || current
+                );
+            });
+        }
+    }, [sessionData]);
+
+    const currentScenario =
+        scenarios.find((scenario) => scenario.id === sessionData?.scenario_id) ||
+        scenarios.find((scenario) => scenario.id === character?.scenario_id) ||
+        null;
+    const currentGameType = currentScenario?.game_type || 'trpg';
+    const actionInputPlaceholder =
+        currentGameType === 'progression'
+            ? '질문을 입력하거나, 한 달 동안의 수련/탐색 방향을 적어보세요'
+            : '행동이나 명령을 입력하세요';
+    const actionModeHint =
+        currentGameType === 'progression'
+            ? '질문은 시간을 소모하지 않습니다. 수련·탐색·섭취 같은 월간 행동만 1개월이 흐릅니다.'
+            : '행동을 입력하면 턴이 진행되고, 상황에 따라 주사위 판정이 적용됩니다.';
+
     // 2. Fetch or Initialize Session
     useEffect(() => {
         const checkSession = async () => {
@@ -232,9 +393,6 @@ export default function GameSession() {
                 if (existingSession) {
                     setSessionId(existingSession.id);
                 } else {
-                    // No session found, load scenarios and prompt user (New Game)
-                    const loadedScenarios = await gameService.getScenarios();
-                    setScenarios(loadedScenarios);
                     setShowScenarioSelect(true);
                 }
             } catch (error) {
@@ -257,10 +415,9 @@ export default function GameSession() {
             const newSession = await gameService.startGame(characterId, scenarioId);
             setSessionId(newSession.id);
             setIsSessionEnded(false);
+            setAchievementBoard(null);
+            setProgressionStatus(null);
             setShouldAnimateInitialSystemMessage(true);
-            if (newSession.image_url) {
-                setImageUrl(newSession.image_url);
-            }
             setShowScenarioSelect(false);
         } catch (error: unknown) {
             console.error("Failed to start session", error);
@@ -341,6 +498,21 @@ export default function GameSession() {
 
             if (!isGameActionResponse(data)) {
                 setIsSessionEnded(true);
+                if (data.achievement_board) {
+                    setAchievementBoard(data.achievement_board);
+                    setProgressionStatus({
+                        hp: data.achievement_board.hp,
+                        max_hp: data.achievement_board.max_hp,
+                        internal_power: data.achievement_board.internal_power,
+                        external_power: data.achievement_board.external_power,
+                        manuals: data.achievement_board.manuals,
+                        remaining_turns: data.achievement_board.remaining_turns,
+                        elapsed_turns: data.total_turns,
+                        escape_status: data.achievement_board.escaped
+                            ? '동굴을 돌파할 자격을 증명했습니다.'
+                            : '윤회의 문턱에서 다시 수련을 돌아봐야 합니다.',
+                    });
+                }
 
                 const endingMessage: GameMessageResponse = {
                     id: `ending-${Date.now()}`,
@@ -380,12 +552,16 @@ export default function GameSession() {
                 role: 'system',
             };
             const hpChange = extractHpChange(data);
+            const progressionChanges = extractProgressionStateChanges(data);
 
             if (hpChange !== 0) {
                 setLocalCharacter((current) =>
                     current ? applyHpChange(current, hpChange) : current
                 );
             }
+            setProgressionStatus((current) =>
+                buildLocalProgressionStatus(current, data, progressionChanges)
+            );
 
             const xpMsg = data.xp_gained && data.xp_gained > 0 ? {
                 id: `xp-${Date.now()}`,
@@ -442,9 +618,6 @@ export default function GameSession() {
                 queryClient.invalidateQueries({ queryKey: ['characters'] });
             }
             
-            if (data.image_url) {
-                setImageUrl(data.image_url);
-            }
         }
     });
 
@@ -484,7 +657,11 @@ export default function GameSession() {
                     );
                 }
             } else {
-                setActionError("System_Error: Neural link interrupted. Please try again.");
+                const serverMessage = extractApiErrorMessage(error);
+                setActionError(
+                    serverMessage ||
+                        "System_Error: Neural link interrupted. Please try again."
+                );
             }
         }
     };
@@ -562,7 +739,12 @@ export default function GameSession() {
                                 <div className="bg-sanabi-panel text-sanabi-cyan px-4 py-2 font-bold text-center border-b border-sanabi-cyan/30 shrink-0 z-20 flex justify-between items-center shadow-[0_4px_20px_rgba(0,240,255,0.1)]">
                                     <span className="text-xs uppercase tracking-widest text-sanabi-cyan/70">System.Log</span>
                                     <span className="tracking-widest animate-pulse">
-                                        {sessionId ? `// ${(sessionData?.scenario_id || 'Adventure').substring(0, 12)}` : 'Connecting...'}
+                                        {sessionId
+                                            ? `// ${
+                                                  currentScenario?.name ||
+                                                  (sessionData?.scenario_id || 'Adventure').substring(0, 12)
+                                              }`
+                                            : 'Connecting...'}
                                     </span>
                                     <span className="w-16"></span>
                                 </div>
@@ -581,23 +763,6 @@ export default function GameSession() {
                                 ) : (
                                     <>
                                         <div className="flex-1 flex flex-col relative overflow-hidden bg-sanabi-bg/80 min-h-0">
-                                            {imageUrl && (
-                                                <DynamicSceneImage
-                                                    imageUrl={imageUrl}
-                                                    alt="Current Scene"
-                                                    className="w-full shrink-0 bg-black border-b border-sanabi-cyan/30 hidden md:flex relative group"
-                                                />
-                                            )}
-
-                                            {/* Mobile-only Image (Smaller) */}
-                                            {imageUrl && (
-                                                <DynamicSceneImage
-                                                    imageUrl={imageUrl}
-                                                    alt="Current Scene"
-                                                    className="w-full shrink-0 bg-black border-b border-sanabi-cyan/30 md:hidden relative group"
-                                                />
-                                            )}
-
                                             <div className="flex-1 overflow-hidden relative flex flex-col min-h-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-opacity-5">
                                             <div className="p-4 pb-0">
                                                     <DiceResultPanel 
@@ -634,6 +799,10 @@ export default function GameSession() {
                                         <div className="p-0 border-t border-sanabi-cyan/30 z-10 bg-sanabi-panel shrink-0 shadow-[0_-4px_20px_rgba(0,0,0,0.5)]">
                                             <ActionInput
                                                 error={actionError}
+                                                modeHint={actionModeHint}
+                                                placeholder={
+                                                    actionInputPlaceholder
+                                                }
                                                 onSend={(content) => {
                                                     handleSendAction(content);
                                                     setActionInput('');
@@ -679,15 +848,22 @@ export default function GameSession() {
                                 <div className="flex flex-col h-full min-h-0">
                                     <div className="bg-sanabi-panel text-sanabi-gold px-4 py-2 font-bold text-center border-b border-sanabi-gold/30 shrink-0 uppercase tracking-widest text-xs flex justify-between">
                                         <span>현재 상황</span>
-                                        <span>_SYNCED</span>
+                                        <span>
+                                            {currentGameType === 'progression'
+                                                ? `${getScenarioTimeLabel(currentGameType)}_SYNC`
+                                                : '_SYNCED'}
+                                        </span>
                                     </div>
-                                    <div className="p-4 flex-1 overflow-y-auto min-h-0">
+                                    <div className="flex-1 overflow-y-auto min-h-0">
                                         <GameStatePanel
                                             gameState={sessionData.game_state}
                                             currentLocation={sessionData.current_location}
                                             turnCount={sessionData.turn_count}
                                             maxTurns={sessionData.max_turns}
                                             status={sessionData.status}
+                                            gameType={currentGameType}
+                                            progressionStatus={progressionStatus}
+                                            achievementBoard={achievementBoard}
                                         />
                                     </div>
                                 </div>

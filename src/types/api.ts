@@ -6,6 +6,14 @@ export interface GameState {
     visited_locations?: string[];
     met_npcs?: string[];
     discoveries?: string[];
+    hp?: number;
+    max_hp?: number;
+    internal_power?: number;
+    external_power?: number;
+    manuals?: ProgressionManual[];
+    traits?: string[];
+    title_candidates?: string[];
+    remaining_turns?: number;
 }
 
 export interface StateChanges {
@@ -15,6 +23,15 @@ export interface StateChanges {
     location?: string;
     npcs_met?: string[];
     discoveries?: string[];
+    internal_power_delta?: number;
+    external_power_delta?: number;
+    manuals_gained?: ProgressionManual[];
+    manual_mastery_updates?: {
+        name: string;
+        mastery_delta: number;
+    }[];
+    traits_gained?: string[];
+    title_candidates?: string[];
 }
 
 export type GameActionType =
@@ -24,7 +41,44 @@ export type GameActionType =
     | 'movement'
     | 'observation'
     | 'rest'
-    | 'exploration';
+    | 'exploration'
+    | 'progression'
+    | 'question';
+
+export type ScenarioGameType = 'trpg' | 'progression';
+
+export interface ProgressionManual {
+    name: string;
+    category: string;
+    mastery: number;
+    aura: string;
+}
+
+export interface ProgressionStatusPanel {
+    hp: number;
+    max_hp: number;
+    internal_power: number;
+    external_power: number;
+    manuals: ProgressionManual[];
+    remaining_turns: number;
+    elapsed_turns: number;
+    escape_status: string;
+}
+
+export interface ProgressionAchievementBoard {
+    character_name: string;
+    scenario_name: string;
+    title: string;
+    escaped: boolean;
+    total_score: number;
+    hp: number;
+    max_hp: number;
+    internal_power: number;
+    external_power: number;
+    manuals: ProgressionManual[];
+    remaining_turns: number;
+    summary: string;
+}
 
 export interface GameActionOption {
     label: string;
@@ -160,6 +214,7 @@ export interface GameActionResponse {
     state_changes?: StateChanges | null;  // 변경: 구체적인 타입 지정
     image_url?: string | null;
     dice_result?: DiceResult | null;
+    status_panel?: ProgressionStatusPanel | null;
     xp_gained?: number;
     leveled_up?: boolean;
     new_game_level?: number;
@@ -176,6 +231,8 @@ export interface GameEndingResponse {
     new_game_level: number;
     leveled_up: boolean;
     levels_gained: number;
+    image_url?: string | null;
+    achievement_board?: ProgressionAchievementBoard | null;
     is_ending?: boolean;
 }
 
@@ -191,6 +248,7 @@ export interface ScenarioResponse {
     id: string;
     name: string;
     description: string;
+    game_type: ScenarioGameType;
     genre: string;
     difficulty: string;
     max_turns: number;

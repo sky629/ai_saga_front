@@ -7,10 +7,21 @@ import type {
     GameMessageResponse,
     MessageHistoryResponse,
     ParsedGameResponse,
+    ProgressionManual,
     StateChanges,
 } from '../../types/api';
 import { cn } from '../../utils/cn';
-import { Sparkles, Skull, MapPin, Package, Users, Palette, Loader2, ImageOff } from 'lucide-react';
+import {
+    Sparkles,
+    Skull,
+    MapPin,
+    Package,
+    Users,
+    Palette,
+    Loader2,
+    ImageOff,
+    ScrollText,
+} from 'lucide-react';
 import { gameService } from '../../services/gameService';
 
 interface MessageHistoryProps {
@@ -125,6 +136,137 @@ function normalizeNarrativeText(value: string): string {
         .trim();
 }
 
+function normalizeProgressionManual(
+    manual: unknown
+): ProgressionManual | null {
+    if (typeof manual !== 'object' || manual === null) {
+        return null;
+    }
+
+    const name =
+        'name' in manual && typeof manual.name === 'string'
+            ? manual.name.trim()
+            : '';
+    if (!name) {
+        return null;
+    }
+
+    return {
+        name,
+        category:
+            'category' in manual && typeof manual.category === 'string'
+                ? manual.category
+                : 'unknown',
+        mastery:
+            'mastery' in manual && typeof manual.mastery === 'number'
+                ? manual.mastery
+                : 0,
+        aura:
+            'aura' in manual && typeof manual.aura === 'string'
+                ? manual.aura
+                : 'neutral',
+    };
+}
+
+function normalizeStateChanges(value: unknown): StateChanges | undefined {
+    if (typeof value !== 'object' || value === null) {
+        return undefined;
+    }
+
+    const raw = value as Record<string, unknown>;
+    const manualMasteryUpdates = Array.isArray(raw.manual_mastery_updates)
+        ? raw.manual_mastery_updates
+              .map((update) => {
+                  if (typeof update !== 'object' || update === null) {
+                      return null;
+                  }
+
+                  const name =
+                      'name' in update && typeof update.name === 'string'
+                          ? update.name.trim()
+                          : '';
+                  if (!name) {
+                      return null;
+                  }
+
+                  return {
+                      name,
+                      mastery_delta:
+                          'mastery_delta' in update &&
+                          typeof update.mastery_delta === 'number'
+                              ? update.mastery_delta
+                              : 0,
+                  };
+              })
+              .filter(
+                  (
+                      update
+                  ): update is {
+                      name: string;
+                      mastery_delta: number;
+                  } => update !== null && update.mastery_delta > 0
+              )
+        : undefined;
+
+    return {
+        hp_change:
+            typeof raw.hp_change === 'number' ? raw.hp_change : undefined,
+        items_gained: Array.isArray(raw.items_gained)
+            ? raw.items_gained.filter(
+                  (item): item is string => typeof item === 'string' && !!item
+              )
+            : undefined,
+        items_lost: Array.isArray(raw.items_lost)
+            ? raw.items_lost.filter(
+                  (item): item is string => typeof item === 'string' && !!item
+              )
+            : undefined,
+        location:
+            typeof raw.location === 'string' ? raw.location : undefined,
+        npcs_met: Array.isArray(raw.npcs_met)
+            ? raw.npcs_met.filter(
+                  (npc): npc is string => typeof npc === 'string' && !!npc
+              )
+            : undefined,
+        discoveries: Array.isArray(raw.discoveries)
+            ? raw.discoveries.filter(
+                  (discovery): discovery is string =>
+                      typeof discovery === 'string' && !!discovery
+              )
+            : undefined,
+        internal_power_delta:
+            typeof raw.internal_power_delta === 'number'
+                ? raw.internal_power_delta
+                : undefined,
+        external_power_delta:
+            typeof raw.external_power_delta === 'number'
+                ? raw.external_power_delta
+                : undefined,
+        manuals_gained: Array.isArray(raw.manuals_gained)
+            ? raw.manuals_gained
+                  .map(normalizeProgressionManual)
+                  .filter(
+                      (
+                          manual
+                      ): manual is ProgressionManual => manual !== null
+                  )
+            : undefined,
+        manual_mastery_updates: manualMasteryUpdates,
+        traits_gained: Array.isArray(raw.traits_gained)
+            ? raw.traits_gained.filter(
+                  (trait): trait is string =>
+                      typeof trait === 'string' && !!trait
+              )
+            : undefined,
+        title_candidates: Array.isArray(raw.title_candidates)
+            ? raw.title_candidates.filter(
+                  (title): title is string =>
+                      typeof title === 'string' && !!title
+              )
+            : undefined,
+    };
+}
+
 function normalizeParsedResponse(parsed: unknown): ParsedGameResponse | null {
     if (
         typeof parsed !== 'object' ||
@@ -147,12 +289,9 @@ function normalizeParsedResponse(parsed: unknown): ParsedGameResponse | null {
         options: normalizeOptions(
             'options' in parsed ? parsed.options : []
         ),
-        state_changes:
-            'state_changes' in parsed &&
-            typeof parsed.state_changes === 'object' &&
-            parsed.state_changes !== null
-                ? (parsed.state_changes as StateChanges)
-                : undefined,
+        state_changes: normalizeStateChanges(
+            'state_changes' in parsed ? parsed.state_changes : undefined
+        ),
     };
 }
 
@@ -281,7 +420,7 @@ function parseGameContent(content: string): ParsedGameResponse | null {
             return {
                 narrative,
                 options,
-                state_changes: {} // Regex parsing state changes is risky/complex
+                state_changes: undefined,
             };
         }
 
@@ -299,7 +438,16 @@ function StateChangeIndicator({ changes }: { changes: StateChanges }) {
         changes.location ||
         (changes.npcs_met && changes.npcs_met.length > 0) ||
         (changes.discoveries && changes.discoveries.length > 0) ||
-        (changes.hp_change !== undefined && changes.hp_change !== 0);
+        (changes.hp_change !== undefined && changes.hp_change !== 0) ||
+        (changes.internal_power_delta !== undefined &&
+            changes.internal_power_delta !== 0) ||
+        (changes.external_power_delta !== undefined &&
+            changes.external_power_delta !== 0) ||
+        (changes.manuals_gained && changes.manuals_gained.length > 0) ||
+        (changes.manual_mastery_updates &&
+            changes.manual_mastery_updates.length > 0) ||
+        (changes.traits_gained && changes.traits_gained.length > 0) ||
+        (changes.title_candidates && changes.title_candidates.length > 0);
 
     if (!hasChanges) return null;
 
@@ -308,6 +456,82 @@ function StateChangeIndicator({ changes }: { changes: StateChanges }) {
             <div className="text-sanabi-cyan font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
                 <Sparkles size={12} /> SYSTEM_UPDATE:
             </div>
+
+            {changes.manuals_gained && changes.manuals_gained.length > 0 && (
+                <div className="space-y-1 text-gray-300">
+                    {changes.manuals_gained.map((manual) => (
+                        <div
+                            key={manual.name}
+                            className="flex items-center gap-2"
+                        >
+                            <ScrollText
+                                size={12}
+                                className="text-sanabi-gold"
+                            />
+                            <span className="font-bold text-sanabi-gold">
+                                [기연]
+                            </span>
+                            <span>
+                                {manual.name} 획득
+                                {typeof manual.mastery === 'number'
+                                    ? ` · 숙련도 ${manual.mastery}%`
+                                    : ''}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {changes.manual_mastery_updates &&
+                changes.manual_mastery_updates.length > 0 && (
+                    <div className="space-y-1 text-gray-300">
+                        {changes.manual_mastery_updates.map((manual) => (
+                            <div
+                                key={`${manual.name}-${manual.mastery_delta}`}
+                                className="flex items-center gap-2"
+                            >
+                                <ScrollText
+                                    size={12}
+                                    className="text-sanabi-cyan"
+                                />
+                                <span className="font-bold text-sanabi-cyan">
+                                    숙련
+                                </span>
+                                <span>
+                                    {manual.name} 숙련도 +{manual.mastery_delta}%
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+            {changes.internal_power_delta !== undefined &&
+                changes.internal_power_delta !== 0 && (
+                    <div className="text-gray-300 flex items-center gap-2">
+                        <Sparkles size={12} className="text-sanabi-cyan" />
+                        <span className="font-bold text-sanabi-cyan">+</span>
+                        <span>
+                            내공{' '}
+                            {changes.internal_power_delta > 0
+                                ? `+${changes.internal_power_delta}`
+                                : changes.internal_power_delta}
+                        </span>
+                    </div>
+                )}
+
+            {changes.external_power_delta !== undefined &&
+                changes.external_power_delta !== 0 && (
+                    <div className="text-gray-300 flex items-center gap-2">
+                        <Skull size={12} className="text-sanabi-gold" />
+                        <span className="font-bold text-sanabi-gold">+</span>
+                        <span>
+                            외공{' '}
+                            {changes.external_power_delta > 0
+                                ? `+${changes.external_power_delta}`
+                                : changes.external_power_delta}
+                        </span>
+                    </div>
+                )}
 
             {changes.items_gained && changes.items_gained.length > 0 && (
                 <div className="text-gray-300 flex items-center gap-2">
@@ -348,6 +572,25 @@ function StateChangeIndicator({ changes }: { changes: StateChanges }) {
                     <span>DATA: {changes.discoveries.join(', ')}</span>
                 </div>
             )}
+
+            {changes.traits_gained && changes.traits_gained.length > 0 && (
+                <div className="text-gray-300 flex items-center gap-2">
+                    <Sparkles size={12} className="text-purple-400" />
+                    <span className="font-bold text-purple-400">+</span>
+                    <span>특성: {changes.traits_gained.join(', ')}</span>
+                </div>
+            )}
+
+            {changes.title_candidates &&
+                changes.title_candidates.length > 0 && (
+                    <div className="text-gray-300 flex items-center gap-2">
+                        <Palette size={12} className="text-sanabi-pink" />
+                        <span className="font-bold text-sanabi-pink">★</span>
+                        <span>
+                            칭호 후보: {changes.title_candidates.join(', ')}
+                        </span>
+                    </div>
+                )}
 
             {changes.hp_change !== undefined && changes.hp_change !== 0 && (
                 <div className={cn(

@@ -9,6 +9,12 @@ import {
 import { gameService } from '../../services/gameService';
 import type { CharacterProfile, ScenarioResponse } from '../../types/api';
 import { cn } from '../../utils/cn';
+import {
+    getGameTypeBadgeClass,
+    getGameTypeDescription,
+    getGameTypeLabel,
+    getScenarioTimeLabel,
+} from '../../utils/gameType';
 import { PixelButton } from '../layout/PixelButton';
 import { PixelCard } from '../layout/PixelCard';
 
@@ -157,11 +163,32 @@ export function CreateCharacterModal({
                             <h4 className="mb-1 flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-sanabi-cyan">
                                 <FileText size={12} /> 선택한 시나리오
                             </h4>
-                            <p className="text-base font-bold text-gray-200">
-                                {scenario.name}
-                            </p>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-base font-bold text-gray-200">
+                                    {scenario.name}
+                                </p>
+                                <span
+                                    className={cn(
+                                        'rounded-sm border px-2 py-1 text-[10px] font-bold uppercase tracking-wider',
+                                        getGameTypeBadgeClass(
+                                            scenario.game_type
+                                        )
+                                    )}
+                                >
+                                    {getGameTypeLabel(scenario.game_type)}
+                                </span>
+                                <span className="rounded-sm border border-white/10 bg-black/30 px-2 py-1 text-[10px] text-gray-400">
+                                    최대 {scenario.max_turns}
+                                    {getScenarioTimeLabel(
+                                        scenario.game_type
+                                    )}
+                                </span>
+                            </div>
                             <p className="mt-1 line-clamp-2 text-sm leading-6 text-gray-400">
                                 {scenario.description}
+                            </p>
+                            <p className="text-xs leading-6 text-gray-500">
+                                {getGameTypeDescription(scenario.game_type)}
                             </p>
                         </div>
                     )}
