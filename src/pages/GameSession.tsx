@@ -366,6 +366,14 @@ export default function GameSession() {
         scenarios.find((scenario) => scenario.id === character?.scenario_id) ||
         null;
     const currentGameType = currentScenario?.game_type || 'trpg';
+    const statusPanelHp =
+        currentGameType === 'progression'
+            ? progressionStatus?.hp ?? sessionData?.game_state?.hp
+            : undefined;
+    const statusPanelMaxHp =
+        currentGameType === 'progression'
+            ? progressionStatus?.max_hp ?? sessionData?.game_state?.max_hp
+            : undefined;
     const actionInputPlaceholder =
         currentGameType === 'progression'
             ? '질문을 입력하거나, 한 달 동안의 수련/탐색 방향을 적어보세요'
@@ -518,6 +526,7 @@ export default function GameSession() {
                     id: `ending-${Date.now()}`,
                     role: 'system',
                     content: `${data.narrative}\n\n[ENDING] ${data.ending_type.toUpperCase()}`,
+                    image_url: data.image_url ?? null,
                     created_at: new Date().toISOString()
                 };
                 const endingUpdates: GameMessageResponse[] = [endingMessage];
@@ -838,7 +847,11 @@ export default function GameSession() {
                                     <span>내 정보</span>
                                     <span className="animate-pulse">_LIVE</span>
                                 </div>
-                                <StatusPanel character={localCharacter} />
+                                <StatusPanel
+                                    character={localCharacter}
+                                    hpOverride={statusPanelHp}
+                                    maxHpOverride={statusPanelMaxHp}
+                                />
                             </div>
                         </PixelCard>
 

@@ -4,10 +4,22 @@ import { useAuth } from '../../hooks/useAuth';
 
 interface StatusPanelProps {
     character: CharacterResponse;
+    hpOverride?: number;
+    maxHpOverride?: number;
 }
 
-export function StatusPanel({ character }: StatusPanelProps) {
+export function StatusPanel({
+    character,
+    hpOverride,
+    maxHpOverride,
+}: StatusPanelProps) {
     const { user } = useAuth();
+    const currentHp =
+        typeof hpOverride === 'number' ? hpOverride : character.stats.hp;
+    const currentMaxHp =
+        typeof maxHpOverride === 'number'
+            ? maxHpOverride
+            : character.stats.max_hp;
     return (
         <div className="flex flex-col gap-2 text-xs p-3 bg-sanabi-bg h-full">
             <div className="flex items-center gap-3">
@@ -38,12 +50,12 @@ export function StatusPanel({ character }: StatusPanelProps) {
                     <div className="w-full">
                         <div className="flex justify-between text-sanabi-pink/80 text-[10px] font-bold mb-0.5 uppercase tracking-wider">
                             <span className="flex items-center gap-1"><Shield size={10} /> HP</span>
-                            <span>{character.stats.hp}/{character.stats.max_hp}</span>
+                            <span>{currentHp}/{currentMaxHp}</span>
                         </div>
                         <div className="h-2.5 w-full bg-black/50 rounded-sm overflow-hidden border border-sanabi-pink/30">
                             <div
                                 className="h-full bg-sanabi-pink relative shadow-[0_0_10px_rgba(255,0,85,0.6)]"
-                                style={{ width: `${Math.min(100, (character.stats.hp / character.stats.max_hp) * 100)}%` }}
+                                style={{ width: `${Math.min(100, (currentHp / Math.max(1, currentMaxHp)) * 100)}%` }}
                             />
                         </div>
                     </div>
