@@ -136,7 +136,7 @@ export default function Stories() {
                                         <PixelButton
                                             variant="primary"
                                             className="flex-1"
-                                            onClick={() => navigate(`/game/${session.character.id}`)}
+                                            onClick={() => navigate(`/game/${session.id}`)}
                                         >
                                             계속하기
                                         </PixelButton>

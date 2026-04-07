@@ -210,7 +210,7 @@ export default function Dashboard() {
             return gameService.startGame(characterId, scenarioId);
         },
         onSuccess: (session) => {
-            navigate(`/game/${session.character_id}`);
+            navigate(`/game/${session.id}`);
         },
         onSettled: () => {
             setIsStartingGame(false);

@@ -51,7 +51,7 @@ export default function AppRoutes() {
                 }
             />
             <Route
-                path="/game/:characterId"
+                path="/game/:sessionId"
                 element={
                     <PrivateRoute>
                         <GameSession />

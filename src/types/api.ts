@@ -14,6 +14,7 @@ export interface GameState {
     traits?: string[];
     title_candidates?: string[];
     remaining_turns?: number;
+    escape_status?: string;
 }
 
 export interface StateChanges {
@@ -62,7 +63,7 @@ export interface ProgressionStatusPanel {
     manuals: ProgressionManual[];
     remaining_turns: number;
     elapsed_turns: number;
-    escape_status: string;
+    escape_status?: string;
 }
 
 export interface ProgressionAchievementBoard {
@@ -78,6 +79,17 @@ export interface ProgressionAchievementBoard {
     manuals: ProgressionManual[];
     remaining_turns: number;
     summary: string;
+    traits?: string[];
+    title_candidates?: string[];
+    title_reason?: string;
+    ending_type?: string;
+}
+
+export interface FinalOutcomeResponse {
+    ending_type: string;
+    narrative: string;
+    image_url?: string | null;
+    achievement_board?: ProgressionAchievementBoard | null;
 }
 
 export interface GameActionOption {
@@ -88,9 +100,15 @@ export interface GameActionOption {
 
 export interface ParsedGameResponse {
     before_narrative?: string;
-    narrative: string;
+    narrative?: string;
     options: GameActionOption[];
     state_changes?: StateChanges;
+    final_outcome?: FinalOutcomeResponse;
+    status_panel?: ProgressionStatusPanel;
+    consumes_turn?: boolean;
+    dice_applied?: boolean;
+    image_focus?: string;
+    ending_type?: string;
 }
 
 export interface CharacterStatsResponse {
@@ -160,6 +178,7 @@ export interface GameSessionResponse {
     started_at: string;
     last_activity_at: string;
     image_url?: string | null;
+    final_outcome?: FinalOutcomeResponse | null;
 }
 
 export interface StartGameRequest {
@@ -172,7 +191,7 @@ export interface GameMessageResponse {
     id: string;
     role: string;
     content: string;
-    parsed_response?: Record<string, unknown> | null;
+    parsed_response?: ParsedGameResponse | null;
     image_url?: string | null;
     created_at: string;
 }
@@ -182,7 +201,8 @@ export interface MessageHistoryResponse {
     role: string;
     content: string;
     created_at: string;
-    parsed_response?: Record<string, unknown> | null;
+    parsed_response?: ParsedGameResponse | null;
+    image_url?: string | null;
 }
 
 export interface GameActionRequest {
@@ -231,8 +251,7 @@ export interface GameEndingResponse {
     new_game_level: number;
     leveled_up: boolean;
     levels_gained: number;
-    image_url?: string | null;
-    achievement_board?: ProgressionAchievementBoard | null;
+    final_outcome: FinalOutcomeResponse;
     is_ending?: boolean;
 }
 

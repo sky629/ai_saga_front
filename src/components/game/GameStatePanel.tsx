@@ -14,6 +14,7 @@ import type {
     ProgressionStatusPanel,
     ScenarioGameType,
 } from '../../types/api';
+import { getManualCategoryLabel } from '../../utils/gameType';
 
 interface GameStatePanelProps {
     gameState: GameState;
@@ -24,6 +25,7 @@ interface GameStatePanelProps {
     gameType?: ScenarioGameType;
     progressionStatus?: ProgressionStatusPanel | null;
     achievementBoard?: ProgressionAchievementBoard | null;
+    achievementImageUrl?: string | null;
 }
 
 function ProgressionPanel({
@@ -34,6 +36,7 @@ function ProgressionPanel({
     status,
     progressionStatus,
     achievementBoard,
+    achievementImageUrl,
 }: {
     gameState: GameState;
     currentLocation: string;
@@ -42,6 +45,7 @@ function ProgressionPanel({
     status?: string;
     progressionStatus?: ProgressionStatusPanel | null;
     achievementBoard?: ProgressionAchievementBoard | null;
+    achievementImageUrl?: string | null;
 }) {
     const statusPanel = progressionStatus;
     const monthsLeft = statusPanel?.remaining_turns ?? Math.max(0, maxTurns - turnCount);
@@ -66,9 +70,11 @@ function ProgressionPanel({
                     <div className="mt-1 text-xs font-bold text-gray-400">
                         남은 시간 {monthsLeft}개월
                     </div>
-                    <div className="mt-1 text-xs text-sanabi-cyan/80">
-                        {statusPanel?.escape_status || '기운을 가다듬는 중입니다.'}
-                    </div>
+                    {statusPanel?.escape_status && (
+                        <div className="mt-1 text-xs text-sanabi-cyan/80">
+                            {statusPanel.escape_status}
+                        </div>
+                    )}
                     {isCompleted && (
                         <div className="mt-1 flex items-center gap-1 text-xs font-bold text-sanabi-pink">
                             <Skull size={12} /> 수련 종료
@@ -128,7 +134,9 @@ function ProgressionPanel({
                                             {manual.name}
                                         </span>
                                         <span className="text-[10px] uppercase text-gray-500">
-                                            {manual.category}
+                                            {getManualCategoryLabel(
+                                                manual.category
+                                            )}
                                         </span>
                                     </div>
                                     <div className="mt-1 text-gray-400">
@@ -151,6 +159,13 @@ function ProgressionPanel({
                         <Sparkles size={12} />
                         업적 보드
                     </div>
+                    {achievementImageUrl && (
+                        <img
+                            src={achievementImageUrl}
+                            alt="최종 업적 보드"
+                            className="w-full rounded-sm border border-sanabi-pink/20 object-cover"
+                        />
+                    )}
                     <div className="text-lg font-bold text-white">
                         {achievementBoard.title}
                     </div>
@@ -172,9 +187,10 @@ export function GameStatePanel({
     turnCount,
     maxTurns,
     status,
-    gameType = 'trpg',
+    gameType,
     progressionStatus,
     achievementBoard,
+    achievementImageUrl,
 }: GameStatePanelProps) {
     if (gameType === 'progression') {
         return (
@@ -186,6 +202,7 @@ export function GameStatePanel({
                 status={status}
                 progressionStatus={progressionStatus}
                 achievementBoard={achievementBoard}
+                achievementImageUrl={achievementImageUrl}
             />
         );
     }

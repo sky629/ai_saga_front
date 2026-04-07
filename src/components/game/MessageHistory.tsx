@@ -2,12 +2,12 @@ import axios from 'axios';
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type {
+    FinalOutcomeResponse,
     GameActionOption,
     GameActionType,
     GameMessageResponse,
     MessageHistoryResponse,
     ParsedGameResponse,
-    ProgressionManual,
     StateChanges,
 } from '../../types/api';
 import { cn } from '../../utils/cn';
@@ -76,57 +76,6 @@ function requiresDice(actionType: GameActionType): boolean {
     return DICE_ACTION_TYPES.includes(actionType);
 }
 
-function normalizeOption(option: unknown): GameActionOption | null {
-    if (typeof option === 'string') {
-        const actionType = inferActionType(option);
-        return {
-            label: option,
-            action_type: actionType,
-            requires_dice: requiresDice(actionType),
-        };
-    }
-
-    if (
-        typeof option === 'object' &&
-        option !== null &&
-        'label' in option &&
-        typeof option.label === 'string'
-    ) {
-        const rawActionType =
-            'action_type' in option && typeof option.action_type === 'string'
-                ? (option.action_type as GameActionType)
-                : inferActionType(option.label);
-        return {
-            label: option.label,
-            action_type: rawActionType,
-            requires_dice:
-                'requires_dice' in option &&
-                typeof option.requires_dice === 'boolean'
-                    ? option.requires_dice
-                    : requiresDice(rawActionType),
-        };
-    }
-
-    return null;
-}
-
-function normalizeOptions(options: unknown): GameActionOption[] {
-    if (!Array.isArray(options)) {
-        return [];
-    }
-
-    return options
-        .map(normalizeOption)
-        .filter((option): option is GameActionOption => option !== null);
-}
-
-function decodeJsonString(value: string): string {
-    return value
-        .replace(/\\n/g, '\n')
-        .replace(/\\"/g, '"')
-        .replace(/\\\\/g, '\\');
-}
-
 function normalizeNarrativeText(value: string): string {
     return value
         .replace(/<br\s*\/?>/gi, '\n')
@@ -136,298 +85,55 @@ function normalizeNarrativeText(value: string): string {
         .trim();
 }
 
-function normalizeProgressionManual(
-    manual: unknown
-): ProgressionManual | null {
-    if (typeof manual !== 'object' || manual === null) {
+function normalizeParsedResponse(
+    parsed: ParsedGameResponse | null | undefined
+): ParsedGameResponse | null {
+    if (!parsed?.narrative) {
         return null;
     }
 
-    const name =
-        'name' in manual && typeof manual.name === 'string'
-            ? manual.name.trim()
-            : '';
-    if (!name) {
-        return null;
-    }
+    const options = (parsed.options || []).map((option) => {
+        const rawActionType = option.action_type || inferActionType(option.label);
+        return {
+            ...option,
+            action_type: rawActionType,
+            requires_dice:
+                typeof option.requires_dice === 'boolean'
+                    ? option.requires_dice
+                    : requiresDice(rawActionType),
+        };
+    });
 
     return {
-        name,
-        category:
-            'category' in manual && typeof manual.category === 'string'
-                ? manual.category
-                : 'unknown',
-        mastery:
-            'mastery' in manual && typeof manual.mastery === 'number'
-                ? manual.mastery
-                : 0,
-        aura:
-            'aura' in manual && typeof manual.aura === 'string'
-                ? manual.aura
-                : 'neutral',
-    };
-}
-
-function normalizeStateChanges(value: unknown): StateChanges | undefined {
-    if (typeof value !== 'object' || value === null) {
-        return undefined;
-    }
-
-    const raw = value as Record<string, unknown>;
-    const manualMasteryUpdates = Array.isArray(raw.manual_mastery_updates)
-        ? raw.manual_mastery_updates
-              .map((update) => {
-                  if (typeof update !== 'object' || update === null) {
-                      return null;
-                  }
-
-                  const name =
-                      'name' in update && typeof update.name === 'string'
-                          ? update.name.trim()
-                          : '';
-                  if (!name) {
-                      return null;
-                  }
-
-                  return {
-                      name,
-                      mastery_delta:
-                          'mastery_delta' in update &&
-                          typeof update.mastery_delta === 'number'
-                              ? update.mastery_delta
-                              : 0,
-                  };
-              })
-              .filter(
-                  (
-                      update
-                  ): update is {
-                      name: string;
-                      mastery_delta: number;
-                  } => update !== null && update.mastery_delta > 0
-              )
-        : undefined;
-
-    return {
-        hp_change:
-            typeof raw.hp_change === 'number' ? raw.hp_change : undefined,
-        items_gained: Array.isArray(raw.items_gained)
-            ? raw.items_gained.filter(
-                  (item): item is string => typeof item === 'string' && !!item
-              )
-            : undefined,
-        items_lost: Array.isArray(raw.items_lost)
-            ? raw.items_lost.filter(
-                  (item): item is string => typeof item === 'string' && !!item
-              )
-            : undefined,
-        location:
-            typeof raw.location === 'string' ? raw.location : undefined,
-        npcs_met: Array.isArray(raw.npcs_met)
-            ? raw.npcs_met.filter(
-                  (npc): npc is string => typeof npc === 'string' && !!npc
-              )
-            : undefined,
-        discoveries: Array.isArray(raw.discoveries)
-            ? raw.discoveries.filter(
-                  (discovery): discovery is string =>
-                      typeof discovery === 'string' && !!discovery
-              )
-            : undefined,
-        internal_power_delta:
-            typeof raw.internal_power_delta === 'number'
-                ? raw.internal_power_delta
-                : undefined,
-        external_power_delta:
-            typeof raw.external_power_delta === 'number'
-                ? raw.external_power_delta
-                : undefined,
-        manuals_gained: Array.isArray(raw.manuals_gained)
-            ? raw.manuals_gained
-                  .map(normalizeProgressionManual)
-                  .filter(
-                      (
-                          manual
-                      ): manual is ProgressionManual => manual !== null
-                  )
-            : undefined,
-        manual_mastery_updates: manualMasteryUpdates,
-        traits_gained: Array.isArray(raw.traits_gained)
-            ? raw.traits_gained.filter(
-                  (trait): trait is string =>
-                      typeof trait === 'string' && !!trait
-              )
-            : undefined,
-        title_candidates: Array.isArray(raw.title_candidates)
-            ? raw.title_candidates.filter(
-                  (title): title is string =>
-                      typeof title === 'string' && !!title
-              )
-            : undefined,
-    };
-}
-
-function normalizeParsedResponse(parsed: unknown): ParsedGameResponse | null {
-    if (
-        typeof parsed !== 'object' ||
-        parsed === null ||
-        !('narrative' in parsed) ||
-        typeof parsed.narrative !== 'string'
-    ) {
-        return null;
-    }
-
-    const beforeNarrative =
-        'before_narrative' in parsed && typeof parsed.before_narrative === 'string'
+        ...parsed,
+        before_narrative: parsed.before_narrative
             ? normalizeNarrativeText(parsed.before_narrative)
-            : undefined;
-    const narrative = normalizeNarrativeText(parsed.narrative);
-
-    return {
-        before_narrative: beforeNarrative,
-        narrative,
-        options: normalizeOptions(
-            'options' in parsed ? parsed.options : []
-        ),
-        state_changes: normalizeStateChanges(
-            'state_changes' in parsed ? parsed.state_changes : undefined
-        ),
+            : undefined,
+        narrative: normalizeNarrativeText(parsed.narrative),
+        options,
     };
 }
 
-function parseGameContent(content: string): ParsedGameResponse | null {
-    try {
-        let jsonString = content;
-        const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
-
-        if (jsonMatch) {
-            jsonString = jsonMatch[1];
-        } else {
-            // Try to find raw JSON object if no code blocks
-            const firstBrace = content.indexOf('{');
-            const lastBrace = content.lastIndexOf('}');
-
-            // Only use brace extraction if it looks like the whole thing is wrapped
-            // If the brace is very late in the string (e.g. part of state_changes at the end), don't strip the beginning!
-            // Heuristic: If firstBrace is > 20 chars in, it's probably not wrapping the whole response.
-            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace && firstBrace < 20) {
-                jsonString = content.substring(firstBrace, lastBrace + 1);
-            }
-        }
-
-        // Attempt 1: Strict JSON Parse
-        try {
-            const parsed = JSON.parse(jsonString);
-            if (typeof parsed === 'object' && parsed !== null && 'narrative' in parsed) {
-                return normalizeParsedResponse(parsed);
-            }
-        } catch {
-            // Check for unescaped control characters
-        }
-
-        // Attempt 2: Regex Extraction (Fallback)
-        // Robust regex for narrative extraction allowing generic string contents
-        const narrativeMatch = jsonString.match(/"narrative"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-        let narrative = null;
-
-        if (narrativeMatch) {
-            narrative = normalizeNarrativeText(
-                narrativeMatch[1]
-                .replace(/\\n/g, '\n')
-                .replace(/\\"/g, '"')
-                .replace(/\\\\/g, '\\')
-            );
-        } else {
-            // Attempt 3: Salvage Strategy (Missing JSON structure)
-            // If we find "options": [ ... ], assume everything before it is the narrative
-            const optionsIndex = jsonString.indexOf('"options":');
-            if (optionsIndex !== -1) {
-                // Take content up to the options key
-                let rawNarrative = jsonString.substring(0, optionsIndex).trim();
-
-                // Clean up trailing comma and quote if present
-                if (rawNarrative.endsWith(',')) rawNarrative = rawNarrative.slice(0, -1).trim();
-                if (rawNarrative.endsWith('"')) rawNarrative = rawNarrative.slice(0, -1);
-
-                // Clean up leading quote and brace if present
-                // But be careful not to remove real text if it starts with quote
-                // A safe heuristic might be: check if it starts with {"narrative":
-                // If not, it might be raw text.
-
-                // If it looks like it was attempting to be JSON key "narrative": "..."
-                const narrativeKeyMatch = rawNarrative.match(/"narrative"\s*:\s*"/);
-                if (narrativeKeyMatch) {
-                    rawNarrative = rawNarrative.substring(narrativeKeyMatch.index! + narrativeKeyMatch[0].length);
-                } else if (rawNarrative.trim().startsWith('{')) {
-                    // Maybe it started with { but failed to have "narrative" key properly?
-                    // Just a fallback cleanup
-                    rawNarrative = rawNarrative.replace(/^\{\s*/, '');
-                }
-
-                narrative = normalizeNarrativeText(
-                    rawNarrative
-                    .replace(/\\n/g, '\n')
-                    .replace(/\\"/g, '"')
-                    .replace(/\\\\/g, '\\')
-                );
-            }
-        }
-
-        if (narrative) {
-            const optionsMatch = jsonString.match(/"options"\s*:\s*\[([\s\S]*?)\]/);
-            let options: GameActionOption[] = [];
-            if (optionsMatch) {
-                const optionsBody = optionsMatch[1];
-                if (optionsBody.includes('"label"')) {
-                    const objectOptions = Array.from(
-                        optionsBody.matchAll(
-                            /"label"\s*:\s*"((?:[^"\\]|\\.)*)"(?:[\s\S]*?"action_type"\s*:\s*"((?:[^"\\]|\\.)*)")?/g
-                        )
-                    );
-
-                    options = objectOptions
-                        .map((match) =>
-                            normalizeOption({
-                                label: decodeJsonString(match[1]),
-                                action_type: match[2]
-                                    ? decodeJsonString(match[2])
-                                    : undefined,
-                            })
-                        )
-                        .filter(
-                            (option): option is GameActionOption =>
-                                option !== null
-                        );
-                } else {
-                    const matches = optionsBody.match(
-                        /"((?:[^"\\]|\\.)*)"/g
-                    );
-                    if (matches) {
-                        options = matches
-                            .map((m) => decodeJsonString(m.slice(1, -1)))
-                            .map(normalizeOption)
-                            .filter(
-                                (option): option is GameActionOption =>
-                                    option !== null
-                            );
-                    }
-                }
-            }
-
-            // Extract basic state changes if possible (optional)
-            // ... skipping complex state changes regex for now as narrative is priority
-
-            return {
-                narrative,
-                options,
-                state_changes: undefined,
-            };
-        }
-
-        return null;
-    } catch {
-        return null;
+function stripFinalAchievementSummary(
+    narrative: string,
+    finalOutcome?: FinalOutcomeResponse
+): string {
+    const summary = finalOutcome?.achievement_board?.summary?.trim();
+    if (!summary) {
+        return narrative;
     }
+
+    const trimmedNarrative = narrative.trimEnd();
+    if (!trimmedNarrative.endsWith(summary)) {
+        return narrative;
+    }
+
+    const withoutSummary = trimmedNarrative
+        .slice(0, trimmedNarrative.length - summary.length)
+        .replace(/\n+\s*$/u, '')
+        .trimEnd();
+
+    return withoutSummary || narrative;
 }
 
 // StateChangeIndicator: Visual feedback for state changes
@@ -813,6 +519,42 @@ function IllustrationSection({
     );
 }
 
+function EndingAchievementCard({
+    finalOutcome,
+}: {
+    finalOutcome: FinalOutcomeResponse;
+}) {
+    const board = finalOutcome.achievement_board;
+    if (!board) {
+        return null;
+    }
+
+    return (
+        <div className="mt-4 space-y-3 rounded-sm border border-sanabi-pink/30 bg-black/50 p-4">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-sanabi-pink">
+                <Sparkles size={12} />
+                Final Achievement
+            </div>
+            {finalOutcome.image_url && (
+                <img
+                    src={finalOutcome.image_url}
+                    alt="최종 업적 보드"
+                    className="w-full rounded-sm border border-sanabi-pink/20 object-cover"
+                />
+            )}
+            <div className="text-lg font-bold text-white">
+                {board.title}
+            </div>
+            <div className="text-xs leading-6 text-gray-300">
+                {board.summary}
+            </div>
+            <div className="text-[11px] uppercase tracking-wide text-gray-500">
+                총 전력 {board.total_score}
+            </div>
+        </div>
+    );
+}
+
 export function MessageHistory({
     messages,
     isLoading,
@@ -864,8 +606,7 @@ export function MessageHistory({
                     isLatestMessage &&
                     canSelectActions;
                 const parsed = isSystem
-                    ? normalizeParsedResponse((msg as GameMessageResponse).parsed_response)
-                        ?? parseGameContent(msg.content)
+                    ? normalizeParsedResponse(msg.parsed_response)
                     : null;
                 const previousMessage = index > 0 ? messages[index - 1] : null;
                 const hasSeparateBeforeNarrative =
@@ -874,20 +615,29 @@ export function MessageHistory({
                     previousMessage.role === 'system' &&
                     normalizeNarrativeText(previousMessage.content) ===
                         parsed.before_narrative;
-                const narrative = parsed
+                const rawNarrative = parsed
                     ? hasSeparateBeforeNarrative
-                        ? parsed.narrative
+                        ? parsed.narrative || msg.content
                         : parsed.before_narrative &&
                             parsed.before_narrative !== parsed.narrative
-                          ? `${parsed.before_narrative}\n\n${parsed.narrative}`
-                          : parsed.narrative
+                          ? `${parsed.before_narrative}\n\n${parsed.narrative || ''}`.trim()
+                          : parsed.narrative || msg.content
                     : msg.content;
                 const options = parsed?.options;
                 const stateChanges = parsed?.state_changes;
-                const msgImageUrl = (msg as GameMessageResponse).image_url;
+                const finalOutcome = parsed?.final_outcome;
+                const narrative = stripFinalAchievementSummary(
+                    rawNarrative,
+                    finalOutcome
+                );
+                const msgImageUrl = msg.image_url;
                 const isTypingTarget = isSystem && typingMessageId === msg.id;
                 const isTypingComplete =
                     !isTypingTarget || completedTypingIds.includes(msg.id);
+                const shouldShowStandaloneIllustration =
+                    sessionId &&
+                    isTypingComplete &&
+                    !finalOutcome;
 
                 return (
                     <div
@@ -937,7 +687,7 @@ export function MessageHistory({
                         {isSystem && (
                             <>
                                 {/* 일러스트 섹션 - 네러티브 바로 아래 표시 */}
-                                {sessionId && isTypingComplete && (
+                                {shouldShowStandaloneIllustration && (
                                     <IllustrationSection
                                         messageId={msg.id}
                                         sessionId={sessionId}
@@ -947,6 +697,11 @@ export function MessageHistory({
 
                                 {isTypingComplete && stateChanges && (
                                     <StateChangeIndicator changes={stateChanges} />
+                                )}
+                                {isTypingComplete && finalOutcome && (
+                                    <EndingAchievementCard
+                                        finalOutcome={finalOutcome}
+                                    />
                                 )}
                                 {isTypingComplete && shouldShowOptions && options && options.length > 0 && (
                                     <div className="mt-4 pt-3 border-t border-sanabi-cyan/20">

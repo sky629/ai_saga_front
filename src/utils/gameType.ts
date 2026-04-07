@@ -38,3 +38,11 @@ export function getGameTypeBadgeClass(
 export function getScenarioTimeLabel(gameType: ScenarioGameType): string {
     return gameType === 'progression' ? '개월' : '턴';
 }
+
+export function getManualCategoryLabel(category: string): string {
+    const normalized = category.trim().toLowerCase();
+    if (normalized === 'internal') return '심법';
+    if (normalized === 'external') return '외공';
+    if (normalized === 'movement') return '신법';
+    return '미분류';
+}
