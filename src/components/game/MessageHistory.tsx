@@ -29,6 +29,7 @@ interface MessageHistoryProps {
     isLoading?: boolean;
     onActionSelect?: (option: GameActionOption) => void;
     sessionId?: string | null;
+    achievementImageUrl?: string | null;
     canSelectActions?: boolean;
     autoScrollBehavior?: ScrollBehavior;
     typingMessageId?: string | null;
@@ -434,7 +435,6 @@ function IllustrationSection({
     initialImageUrl?: string | null;
 }) {
     const [imageUrl, setImageUrl] = useState<string | null>(initialImageUrl ?? null);
-    const [imageAspectRatio, setImageAspectRatio] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -457,30 +457,16 @@ function IllustrationSection({
 
     if (imageUrl) {
         return (
-            <div
-                className="mt-3 relative overflow-hidden rounded-sm border border-sanabi-pink/20 group bg-black/70"
-                style={
-                    imageAspectRatio
-                        ? { aspectRatio: `${imageAspectRatio}` }
-                        : undefined
-                }
-            >
+            <div className="mt-3 relative aspect-[3/4] overflow-hidden rounded-sm border border-sanabi-pink/20 group bg-black/70">
                 <img
                     src={imageUrl}
                     alt="Scene Illustration"
-                    className="w-full h-full object-contain opacity-90 group-hover:opacity-100 transition-opacity duration-500"
+                    className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity duration-500"
                     style={{ imageRendering: 'pixelated' }}
-                    onLoad={(event) => {
-                        const { naturalWidth, naturalHeight } = event.currentTarget;
-                        if (naturalWidth > 0 && naturalHeight > 0) {
-                            setImageAspectRatio(naturalWidth / naturalHeight);
-                        }
-                    }}
                     onError={() => {
                         console.error("ILLUST_LOAD_FAILED:", imageUrl);
                         setError("IMAGE_LOAD_ERR: 이미지를 불러올 수 없습니다. URL 설정을 확인하세요.");
                         setImageUrl(null);
-                        setImageAspectRatio(null);
                     }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
@@ -521,10 +507,16 @@ function IllustrationSection({
 
 function EndingAchievementCard({
     finalOutcome,
+    achievementImageUrl,
+    fallbackImageUrl,
 }: {
     finalOutcome: FinalOutcomeResponse;
+    achievementImageUrl?: string | null;
+    fallbackImageUrl?: string | null;
 }) {
     const board = finalOutcome.achievement_board;
+    const displayImageUrl =
+        achievementImageUrl || finalOutcome.image_url || fallbackImageUrl;
     if (!board) {
         return null;
     }
@@ -535,12 +527,14 @@ function EndingAchievementCard({
                 <Sparkles size={12} />
                 Final Achievement
             </div>
-            {finalOutcome.image_url && (
-                <img
-                    src={finalOutcome.image_url}
-                    alt="최종 업적 보드"
-                    className="w-full rounded-sm border border-sanabi-pink/20 object-cover"
-                />
+            {displayImageUrl && (
+                <div className="relative aspect-[3/4] overflow-hidden rounded-sm border border-sanabi-pink/20">
+                    <img
+                        src={displayImageUrl}
+                        alt="최종 업적 보드"
+                        className="h-full w-full object-cover"
+                    />
+                </div>
             )}
             <div className="text-lg font-bold text-white">
                 {board.title}
@@ -560,6 +554,7 @@ export function MessageHistory({
     isLoading,
     onActionSelect,
     sessionId,
+    achievementImageUrl,
     canSelectActions = true,
     autoScrollBehavior = 'auto',
     typingMessageId = null,
@@ -701,6 +696,10 @@ export function MessageHistory({
                                 {isTypingComplete && finalOutcome && (
                                     <EndingAchievementCard
                                         finalOutcome={finalOutcome}
+                                        achievementImageUrl={
+                                            achievementImageUrl
+                                        }
+                                        fallbackImageUrl={msgImageUrl}
                                     />
                                 )}
                                 {isTypingComplete && shouldShowOptions && options && options.length > 0 && (

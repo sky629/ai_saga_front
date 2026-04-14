@@ -160,11 +160,13 @@ function ProgressionPanel({
                         업적 보드
                     </div>
                     {achievementImageUrl && (
-                        <img
-                            src={achievementImageUrl}
-                            alt="최종 업적 보드"
-                            className="w-full rounded-sm border border-sanabi-pink/20 object-cover"
-                        />
+                        <div className="relative aspect-[3/4] overflow-hidden rounded-sm border border-sanabi-pink/20">
+                            <img
+                                src={achievementImageUrl}
+                                alt="최종 업적 보드"
+                                className="h-full w-full object-cover"
+                            />
+                        </div>
                     )}
                     <div className="text-lg font-bold text-white">
                         {achievementBoard.title}

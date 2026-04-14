@@ -697,6 +697,9 @@ export default function GameSession() {
                                         isLoading={!!sendActionMutation.isPending}
                                         typingMessageId={typingMessageId}
                                         onTypingComplete={handleTypingComplete}
+                                        achievementImageUrl={
+                                            sessionData.image_url
+                                        }
                                         canSelectActions={
                                             !isSessionEnded &&
                                             sessionData.status !== 'completed'
