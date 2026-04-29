@@ -661,9 +661,9 @@ export default function GameSession() {
 
     return (
         <PixelLayout>
-            <div className="flex flex-col md:flex-row h-full gap-4 overflow-hidden p-4">
+            <div className="flex h-full flex-col gap-3 overflow-y-auto p-2 md:flex-row md:gap-4 md:overflow-hidden md:p-4">
                 {/* Main Game Window */}
-                <div className="flex-1 flex flex-col h-full min-h-0">
+                <div className="flex min-h-[calc(100dvh-8rem)] flex-col md:h-full md:min-h-0 md:flex-1">
                     <PixelCard
                         variant="cyber"
                         className="flex-1 flex flex-col p-0 overflow-hidden border-sanabi-cyan/50"
@@ -747,7 +747,7 @@ export default function GameSession() {
                     </PixelCard>
                 </div>
 
-                <div className="w-full md:w-80 flex flex-col gap-4 h-auto md:h-full overflow-y-auto md:overflow-hidden shrink-0 scrollbar-hide">
+                <div className="flex h-auto w-full shrink-0 flex-col gap-3 overflow-visible md:h-full md:w-80 md:gap-4 md:overflow-hidden">
                     <PixelCard variant="cyber" className="p-0 overflow-hidden shrink-0 border-sanabi-pink/50">
                         <div className="flex flex-col">
                             <div className="bg-sanabi-panel text-sanabi-pink px-3 py-1.5 font-bold text-center border-b border-sanabi-pink/30 shrink-0 uppercase tracking-widest text-[10px] flex justify-between">

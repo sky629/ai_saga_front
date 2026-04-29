@@ -127,7 +127,7 @@ export function CreateCharacterModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm font-pixel">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/90 p-2 py-4 backdrop-blur-sm font-pixel sm:items-center sm:p-4">
             <PixelCard
                 className="w-full max-w-3xl border-sanabi-cyan/70"
                 variant="cyber"
